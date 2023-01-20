@@ -1,16 +1,16 @@
 mod egui_app;
-mod websocket;
+mod client_ws;
 
 use std::sync::{Arc, Mutex};
-use clap::builder::Str;
-use tokio::runtime::EnterGuard;
-use websockets::{Frame};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
-use tracing::{Level, span};
+use crate::common::profile::Profile;
 
 pub type SState = Arc<Mutex<State>>;
 #[derive(Debug)]
 pub struct State {
+    pub active_profile: Option<Profile>,
+    pub profiles: Vec<String>,
+
     pub ws_tx: UnboundedSender<String>,
 }
 
@@ -18,12 +18,15 @@ pub fn app() {
     // state
     let (ws_tx,ws_rx) = unbounded_channel::<String>();
     let state = Arc::new(Mutex::new(State{
+        active_profile: None,
+        profiles: vec![],
+
         ws_tx,
     }));
 
     // websocket
     let sc = state.clone();
-    tokio::spawn(async {websocket::ws_loop( sc, ws_rx).await });
+    tokio::spawn(async { client_ws::ws_loop(sc, ws_rx).await });
 
     // egui on main thread
     let native_options = eframe::NativeOptions::default();

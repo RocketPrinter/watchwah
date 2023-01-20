@@ -1,13 +1,13 @@
 use std::time::Duration;
-use clap::builder::Str;
 use tokio::{select};
 use tokio::sync::mpsc::{UnboundedReceiver};
 use tokio::time::sleep;
-use tracing::{error, event, info, instrument, Level, span};
+use tracing::{error, info};
 use websockets::{Frame, WebSocket, WebSocketError};
 use crate::app::SState;
+use crate::common::ws_common::ServerToClient;
 
-const URL: &str = "ws://localhost:63086/";
+const URL: &str = "ws://localhost:63086/ws";
 
 /// Handles reconnections and message processing
 pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<String>) {
@@ -39,7 +39,10 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
 
                     if fin {
                         // message has finalized, we can handle it
-                        handle_msg(state, payload);
+                        match serde_json::from_str::<ServerToClient>(&payload) {
+                            Ok(payload) => handle_msg(state,payload),
+                            Err(err) => error!("[Client] Failed to deserialize ws message: {err}")
+                        }
                     } else {
                         // message is not finalized yet
                         incomplete_payload = Some(payload);
@@ -54,6 +57,20 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
     }
 }
 
-fn handle_msg(state: &SState, text: String) {
-    todo!()
+fn handle_msg(state: &SState, msg: ServerToClient) {
+    match msg {
+        ServerToClient::UpdateProfiles(profiles) => {
+            state.lock().unwrap().profiles = profiles;
+        }
+        ServerToClient::UpdateActiveProfile(profile) => {
+            state.lock().unwrap().active_profile = profile;
+        }
+
+        ServerToClient::RefreshedConfig => {todo!()} // show a popup
+
+        ServerToClient::Multiple(msgs) =>
+            for msg in msgs {
+            handle_msg(state, msg);
+        }
+    }
 }

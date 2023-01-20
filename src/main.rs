@@ -1,8 +1,16 @@
-mod daemon;
 mod app;
+mod daemon;
+pub mod common {
+    pub mod ws_common;
+    pub mod profile;
+    pub mod config;
+}
 
-use std::env::args;
+use std::thread;
 use clap::{Parser, Subcommand};
+use tokio::runtime::{Runtime};
+use crate::app::app;
+use crate::daemon::daemon;
 
 // todo: more info and args
 #[derive(Parser)]
@@ -23,6 +31,8 @@ enum Command {
     },
     /// Start the app and daemon in the same process
     Together,
+    // Installs/Updates the firefox addon
+    Addon,
 }
 
 #[derive(Subcommand)]
@@ -38,19 +48,8 @@ enum DaemonCommand {
 }
 
 fn main() {
-    // logging
-    // todo: https://tokio.rs/tokio/topics/tracing-next-steps
-    let subscriber = tracing_subscriber::FmtSubscriber::new();
-    tracing::subscriber::set_global_default(subscriber).unwrap();
-
-    // tokio runtime
-    let tokio = tokio::runtime::Runtime::new()
-        .unwrap();
+    let tokio = init();
     let _guard = tokio.enter();
-
-    app::app();
-
-    return;
 
     match Cli::parse().command {
         Command::App => {
@@ -71,7 +70,22 @@ fn main() {
             }
         }
         Command::Together => {
+            thread::spawn(daemon);
+            app();
+        },
+        Command::Addon => {
             todo!()
         }
     }
+}
+
+
+fn init() -> Runtime {
+    // logging
+    // todo: https://tokio.rs/tokio/topics/tracing-next-steps
+    let subscriber = tracing_subscriber::FmtSubscriber::new();
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+
+    // tokio runtime
+    Runtime::new().unwrap()
 }
