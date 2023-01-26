@@ -4,30 +4,30 @@ use tokio::sync::mpsc::{UnboundedReceiver};
 use tokio::time::sleep;
 use tracing::{error, info};
 use websockets::{Frame, WebSocket, WebSocketError};
+use anyhow::Result;
 use crate::app::SState;
-use crate::common::ws_common::ServerToClient;
+use crate::common::ws_common::{ClientToServer, ServerToClient};
 
 const URL: &str = "ws://localhost:63086/ws";
 
 /// Handles reconnections and message processing
-pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<String>) {
+pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
     loop {
-        let err = match WebSocket::connect(URL).await {
+        let e = match WebSocket::connect(URL).await {
             Ok(ws) => {
-                info!("[Client] Connection established!");
+                info!("[Client WS] Connection established");
                 select_loop(&state, ws,&mut rx).await.unwrap_err()
             },
             Err(err) => err,
         };
-        let err = err.to_string();
-        error!(err);
+        error!("[Client WS] Stopped with error {0}", e.to_string());
 
         // wait 3 seconds before retrying
         sleep(Duration::from_secs(3)).await;
     }
 }
 
-async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiver<String>) -> Result<(), WebSocketError> {
+async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiver<ClientToServer>) -> Result<(),WebSocketError> {
     let mut incomplete_payload: Option<String> = None;
     loop {
         select! {
@@ -41,7 +41,7 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
                         // message has finalized, we can handle it
                         match serde_json::from_str::<ServerToClient>(&payload) {
                             Ok(payload) => handle_msg(state,payload),
-                            Err(err) => error!("[Client] Failed to deserialize ws message: {err}")
+                            Err(e) => error!("[Client WS] Failed to deserialize message: {e}")
                         }
                     } else {
                         // message is not finalized yet
@@ -49,10 +49,12 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
                     }
                 }
             },
-            // text was received from channel that needs to be sent to the ws
-            Some(text) = rx.recv() => {
-                ws.send(Frame::text(text)).await?;
-            },
+            // message was received from channel that needs to be sent to the ws
+            Some(msg) = rx.recv() =>
+                match serde_json::to_string(&msg) {
+                    Ok(text) => ws.send(Frame::text(text)).await?,
+                    Err(e) => error!("[Client WS] Failed to serialize message: {e}"),
+                },
         }
     }
 }

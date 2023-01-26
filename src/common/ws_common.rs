@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::common::profile::Profile;
 
-#[derive(Serialize,Deserialize,Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientToServer {
     SetActiveProfile(Option<String>),
 
@@ -10,7 +10,7 @@ pub enum ClientToServer {
     Multiple(Vec<ClientToServer>),
 }
 
-#[derive(Serialize,Deserialize,Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerToClient {
     UpdateProfiles(Vec<String>),
     UpdateActiveProfile(Option<Profile>),

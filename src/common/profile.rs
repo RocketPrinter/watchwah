@@ -1,7 +1,7 @@
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {
     #[serde(skip)] // generated from the file name
     pub name: String,
@@ -9,14 +9,14 @@ pub struct Profile {
     pub timer: TimerSettings,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimerSettings {
     #[serde(default)]
     stopping: TimerBehaviour,
     pausing: TimerBehaviour,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TimerBehaviour{
     Never,
     After(Duration),

@@ -1,29 +1,28 @@
 mod server_ws;
 mod rest;
+mod config_service;
+mod timer_service;
 
-use std::sync::{Arc, Mutex};
 use axum::extract::WebSocketUpgrade;
-use axum::extract::ws::WebSocket;
 use axum::Router;
-use axum::ServiceExt;
 use axum::routing::get;
+use tokio::sync::broadcast;
 use tracing::error;
-
-pub type SState = Arc<Mutex<State>>;
-#[derive(Debug)]
-pub struct State {
-
-}
+use crate::common::ws_common::ServerToClient;
 
 pub fn daemon() {
-    let mut state = Arc::new(Mutex::new(State{
+    let (ws_tx, _ws_rx) = broadcast::channel::<ServerToClient>(16);
 
-    }));
+    // config
 
-    // server
+    // timer service
+
+    // axum
     let router = Router::new()
-        .route("/ws", get( |ws: WebSocketUpgrade| async {ws.on_upgrade(handle_socket)}))
-        .with_state(state.clone());
+        .route("/ws", get( move |upgrade: WebSocketUpgrade|
+            async {upgrade.on_upgrade(move |ws| server_ws::handle_socket(ws,ws_tx.subscribe()))}
+        ));
+    // todo: rest
 
     let server = axum::Server::bind(&"0.0.0.0:63086".parse().unwrap())
         .serve(router.into_make_service());
@@ -33,20 +32,4 @@ pub fn daemon() {
             error!("[Server] Axum failed with {e}")
         }
     });
-}
-
-async fn handle_socket(mut socket: WebSocket) {
-    while let Some(msg) = socket.recv().await {
-        let msg = if let Ok(msg) = msg {
-            msg
-        } else {
-            // client disconnected
-            return;
-        };
-
-        if socket.send(msg).await.is_err() {
-            // client disconnected
-            return;
-        }
-    }
 }

@@ -7,7 +7,7 @@ pub struct EguiApp {
 }
 
 impl EguiApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, state: SState) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>, state: SState) -> Self {
         info!("[Client] Starting egui");
 
 
@@ -22,7 +22,7 @@ impl EguiApp {
 }
 
 impl eframe::App for EguiApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Hello World!");
         });

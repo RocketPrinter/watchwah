@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use crate::common::profile::Profile;
 use anyhow::{anyhow, Result};
@@ -9,17 +9,19 @@ pub struct Config {
 
 
 
-
     #[serde(skip)] // generated from neighboring files
     pub profiles: Vec<Profile>,
 }
 
-pub fn load() ->  Result<Config> {
-    let dir = Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah");
+pub fn get_config_path() -> PathBuf {
+    Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah")
+}
+
+pub fn load(path: PathBuf) ->  Result<Config> {
     let mut conf: Option<Config> = None;
     let mut profiles: Vec<Profile> = vec![];
 
-    for file in fs::read_dir(dir)?.filter_map(|f|f.ok()) {
+    for file in fs::read_dir(path)?.filter_map(|f|f.ok()) {
         if !file.path().ends_with(".toml") {continue}
 
         let contents = fs::read_to_string(file.path())?;
