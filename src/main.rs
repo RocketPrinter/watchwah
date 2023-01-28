@@ -6,7 +6,6 @@ pub mod common {
     pub mod config;
 }
 
-use std::thread;
 use clap::{Parser, Subcommand};
 use tokio::runtime::{Runtime};
 use crate::app::app;
@@ -70,7 +69,7 @@ fn main() {
             }
         }
         Command::Together => {
-            thread::spawn(daemon);
+            tokio::spawn(daemon());
             app();
         },
         Command::Addon => {
@@ -83,7 +82,7 @@ fn main() {
 fn init() -> Runtime {
     // logging
     // todo: https://tokio.rs/tokio/topics/tracing-next-steps
-    let subscriber = tracing_subscriber::FmtSubscriber::new();
+    let subscriber = tracing_subscriber::fmt().finish();
     tracing::subscriber::set_global_default(subscriber).unwrap();
 
     // tokio runtime

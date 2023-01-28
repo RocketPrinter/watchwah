@@ -1,11 +1,12 @@
 use axum::extract::ws::{WebSocket, Message};
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
-use tracing::{info,error};
+use tracing::{info, error, instrument};
 use crate::common::ws_common::{ClientToServer, ServerToClient};
 
+#[instrument(name = "server ws", skip_all)]
 pub async fn handle_socket(/* todo: more fields*/mut ws: WebSocket, mut rx: Receiver<ServerToClient>) {
-    info!("[Server WS] Connection established"); // todo: log ip/other info
+    info!("Connection established"); // todo: log ip/other info
     loop {
         select! {
             // message was received from websocket
@@ -14,12 +15,12 @@ pub async fn handle_socket(/* todo: more fields*/mut ws: WebSocket, mut rx: Rece
                     Ok(Message::Text(text)) => {
                         match serde_json::from_str::<ClientToServer>(&text) {
                             Ok(msg) => handle_msg(msg),
-                            Err(e) => error!("[Server WS] Failed to deserialize message: {e}"),
+                            Err(e) => error!("Failed to deserialize message: {e}"),
                         }
                     },
                     Ok(_) => (),
                     Err(e) => {
-                        error!("[Server WS] Failed to receive message: {e}");
+                        error!("Failed to receive message: {e}");
                         return; // todo: does an error here mean that the websocket is closed?
                     }
                 },
@@ -27,11 +28,11 @@ pub async fn handle_socket(/* todo: more fields*/mut ws: WebSocket, mut rx: Rece
             rez = rx.recv() =>
                 match rez.map(|msg| serde_json::to_string(&msg) ) {
                     Ok(Ok(text)) => if let Err(e) = ws.send(Message::Text(text)).await {
-                        error!("[Server WS] Failed to send message: {e}");
+                        error!("Failed to send message: {e}");
                         return; // todo: does an error here mean that the websocket is closed?
                     },
-                    Ok(Err(e)) => error!("[Server WS] Failed to serialize message: {e}"),
-                    Err(e) => error!("[Server WS] Broadcast: {e}"),
+                    Ok(Err(e)) => error!("Failed to serialize message: {e}"),
+                    Err(e) => error!("Broadcast error: {e}"),
                 }
         }
     }

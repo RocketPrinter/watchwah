@@ -29,7 +29,7 @@ pub fn app() {
     let sc = state.clone();
     tokio::spawn(async { client_ws::ws_loop(sc, ws_rx).await });
 
-    // egui on main thread
+    // egui
     let native_options = eframe::NativeOptions::default();
     eframe::run_native("Watchwah", native_options, Box::new(|cc| Box::new(egui_app::EguiApp::new(cc, state))));
 }

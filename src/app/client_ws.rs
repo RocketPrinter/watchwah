@@ -2,7 +2,7 @@ use std::time::Duration;
 use tokio::{select};
 use tokio::sync::mpsc::{UnboundedReceiver};
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 use websockets::{Frame, WebSocket, WebSocketError};
 use anyhow::Result;
 use crate::app::SState;
@@ -11,16 +11,17 @@ use crate::common::ws_common::{ClientToServer, ServerToClient};
 const URL: &str = "ws://localhost:63086/ws";
 
 /// Handles reconnections and message processing
+#[instrument(name = "client ws", skip_all)]
 pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
     loop {
         let e = match WebSocket::connect(URL).await {
             Ok(ws) => {
-                info!("[Client WS] Connection established");
+                info!("Connection established");
                 select_loop(&state, ws,&mut rx).await.unwrap_err()
             },
             Err(err) => err,
         };
-        error!("[Client WS] Stopped with error {0}", e.to_string());
+        error!("Stopped with error \"{0}\". Retrying in 3 seconds ", e.to_string());
 
         // wait 3 seconds before retrying
         sleep(Duration::from_secs(3)).await;

@@ -17,7 +17,7 @@ pub fn get_config_path() -> PathBuf {
     Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah")
 }
 
-pub fn load(path: PathBuf) ->  Result<Config> {
+pub fn load(path: &PathBuf) ->  Result<Config> {
     let mut conf: Option<Config> = None;
     let mut profiles: Vec<Profile> = vec![];
 
