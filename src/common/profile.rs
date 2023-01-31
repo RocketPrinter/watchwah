@@ -6,11 +6,11 @@ pub struct Profile {
     #[serde(skip)] // generated from the file name
     pub name: String,
 
-    pub timer: TimerSettings,
+    pub timer: TimerConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TimerSettings {
+pub struct TimerConfig {
     #[serde(default)]
     stopping: TimerBehaviour,
     pausing: TimerBehaviour,

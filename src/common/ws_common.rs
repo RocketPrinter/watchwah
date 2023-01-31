@@ -5,8 +5,6 @@ use crate::common::profile::Profile;
 pub enum ClientToServer {
     SetActiveProfile(Option<String>),
 
-    RefreshConfig,
-
     Multiple(Vec<ClientToServer>),
 }
 

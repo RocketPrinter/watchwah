@@ -9,7 +9,6 @@ use axum::Router;
 use axum::routing::get;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{error, instrument};
-use crate::common::config;
 use crate::common::config::Config;
 use crate::common::ws_common::ServerToClient;
 
@@ -20,7 +19,7 @@ pub async fn daemon() {
     let (ws_tx, _ws_rx) = broadcast::channel::<ServerToClient>(16);
 
     // config
-    let conf = config::load(&config::get_config_path())
+    let conf = config_service::load()
         .map_err(|e| error!("Unable to load config: {e}") ).unwrap();
     let conf = Arc::new(RwLock::new(conf));
     let monitor = config_service::config_monitor(conf.clone(), ws_tx.clone());
@@ -37,7 +36,7 @@ pub async fn daemon() {
         ));
     // todo: rest
 
-    let server = axum::Server::bind(&"0.0.0.0:63086".parse().unwrap())
+    let server = axum::Server::bind(&"127.0.0.1:63086".parse().unwrap())
         .serve(router.into_make_service());
 
     tokio::spawn(async {

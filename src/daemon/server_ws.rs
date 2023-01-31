@@ -5,7 +5,7 @@ use tracing::{info, error, instrument};
 use crate::common::ws_common::{ClientToServer, ServerToClient};
 
 #[instrument(name = "server ws", skip_all)]
-pub async fn handle_socket(/* todo: more fields*/mut ws: WebSocket, mut rx: Receiver<ServerToClient>) {
+pub async fn handle_socket(mut ws: WebSocket, mut rx: Receiver<ServerToClient>) {
     info!("Connection established"); // todo: log ip/other info
     loop {
         select! {
