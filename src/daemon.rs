@@ -9,10 +9,10 @@ use axum::Router;
 use axum::routing::get;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{error, instrument};
-use crate::common::config::Config;
+use crate::common::config::ServerConfig;
 use crate::common::ws_common::ServerToClient;
 
-type SConfig = Arc<RwLock<Config>>;
+type SConfig = Arc<RwLock<ServerConfig>>;
 
 #[instrument(name="daemon", skip_all)]
 pub async fn daemon() {

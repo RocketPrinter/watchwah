@@ -7,6 +7,7 @@ use websockets::{Frame, WebSocket, WebSocketError};
 use anyhow::Result;
 use crate::app::SState;
 use crate::common::ws_common::{ClientToServer, ServerToClient};
+use ServerToClient::*;
 
 const URL: &str = "ws://localhost:63086/ws";
 
@@ -22,6 +23,7 @@ pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
             Err(err) => err,
         };
         error!("Stopped with error \"{0}\". Retrying in 3 seconds ", e.to_string());
+        state.lock().unwrap().ws_connected = false;
 
         // wait 3 seconds before retrying
         sleep(Duration::from_secs(3)).await;
@@ -30,6 +32,7 @@ pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
 
 async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiver<ClientToServer>) -> Result<(),WebSocketError> {
     let mut incomplete_payload: Option<String> = None;
+    state.lock().unwrap().ws_connected = true;
     loop {
         select! {
             // message was received from the websocket that needs to be handled
@@ -61,19 +64,20 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
 }
 
 fn handle_msg(state: &SState, msg: ServerToClient) {
+    if let Multiple(msgs) = msg {
+        for msg in msgs { handle_msg(state, msg); }
+        return;
+    }
+
+    let mut state = state.lock().unwrap();
+
     match msg {
-        ServerToClient::UpdateProfiles(profiles) => {
-            state.lock().unwrap().profiles = profiles;
-        }
-        ServerToClient::UpdateActiveProfile(profile) => {
-            state.lock().unwrap().active_profile = profile;
-        }
+        UpdateProfiles(profiles) => { state.profiles = profiles; },
+        UpdateActiveProfile(profile) => { state.active_profile = profile; },
+        UpdateTimer(timer) => { state.timer = timer; }
 
-        ServerToClient::RefreshedConfig => {todo!()} // show a popup
+        RefreshedConfig => todo!(), // show a popup
 
-        ServerToClient::Multiple(msgs) =>
-            for msg in msgs {
-            handle_msg(state, msg);
-        }
+        Multiple(_) =>{}, // already handled
     }
 }

@@ -3,6 +3,7 @@ use tokio::select;
 use tokio::sync::broadcast::Receiver;
 use tracing::{info, error, instrument};
 use crate::common::ws_common::{ClientToServer, ServerToClient};
+use ClientToServer::*;
 
 #[instrument(name = "server ws", skip_all)]
 pub async fn handle_socket(mut ws: WebSocket, mut rx: Receiver<ServerToClient>) {
@@ -40,11 +41,12 @@ pub async fn handle_socket(mut ws: WebSocket, mut rx: Receiver<ServerToClient>) 
 
 fn handle_msg(/* todo: more fields */msg: ClientToServer) {
     match msg {
-        ClientToServer::SetActiveProfile(_) => todo!(),
+        SetActiveProfile(_) => todo!(),
 
-        ClientToServer::RefreshConfig => todo!(),
+        PauseTimer => todo!(),
+        StopTimer => todo!(),
 
-        ClientToServer::Multiple(msgs) =>
+        Multiple(msgs) =>
             for msg in msgs {
                 handle_msg(msg);
             },

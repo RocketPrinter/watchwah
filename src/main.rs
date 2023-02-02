@@ -4,6 +4,7 @@ pub mod common {
     pub mod ws_common;
     pub mod profile;
     pub mod config;
+    pub mod timer_state;
 }
 
 use clap::{Parser, Subcommand};

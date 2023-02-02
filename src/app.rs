@@ -5,6 +5,7 @@ mod client_ws;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use crate::common::profile::Profile;
+use crate::common::timer_state::TimerState;
 use crate::common::ws_common::ClientToServer;
 
 pub type SState = Arc<Mutex<State>>;
@@ -12,7 +13,9 @@ pub type SState = Arc<Mutex<State>>;
 pub struct State {
     pub active_profile: Option<Profile>,
     pub profiles: Vec<String>,
+    pub timer: TimerState,
 
+    pub ws_connected: bool,
     pub ws_tx: UnboundedSender<ClientToServer>,
 }
 
@@ -22,7 +25,9 @@ pub fn app() {
     let state = Arc::new(Mutex::new(State{
         active_profile: None,
         profiles: vec![],
-
+        timer: TimerState::Disabled,
+        
+        ws_connected: false,
         ws_tx,
     }));
 
@@ -31,6 +36,5 @@ pub fn app() {
     tokio::spawn(async { client_ws::ws_loop(sc, ws_rx).await });
 
     // egui
-    let native_options = eframe::NativeOptions::default();
-    eframe::run_native("Watchwah", native_options, Box::new(|cc| Box::new(egui_app::EguiApp::new(cc, state))));
+    egui_app::run(state);
 }

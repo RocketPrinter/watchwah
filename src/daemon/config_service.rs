@@ -6,7 +6,7 @@ use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info, instrument};
-use crate::common::config::Config;
+use crate::common::config::ServerConfig;
 use crate::common::profile::Profile;
 use crate::common::ws_common::ServerToClient;
 use crate::daemon::{SConfig};
@@ -43,8 +43,8 @@ fn get_config_path() -> PathBuf {
     Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah")
 }
 
-pub fn load() ->  Result<Config> {
-    let mut conf: Option<Config> = None;
+pub fn load() ->  Result<ServerConfig> {
+    let mut conf: Option<ServerConfig> = None;
     let mut profiles: Vec<Profile> = vec![];
 
     for file in fs::read_dir(get_config_path())?.filter_map(|f|f.ok()) {
