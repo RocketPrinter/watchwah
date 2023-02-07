@@ -25,7 +25,7 @@ pub fn app() {
     let state = Arc::new(Mutex::new(State{
         active_profile: None,
         profiles: vec![],
-        timer: TimerState::Disabled,
+        timer: TimerState::NotCreated,
         
         ws_connected: false,
         ws_tx,

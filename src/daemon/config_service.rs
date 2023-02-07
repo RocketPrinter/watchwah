@@ -6,13 +6,14 @@ use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info, instrument};
-use crate::common::config::ServerConfig;
+use crate::common::config::MainConfig;
 use crate::common::profile::Profile;
 use crate::common::ws_common::ServerToClient;
 use crate::daemon::{SConfig};
 
+
 #[instrument(name="config monitor", skip_all)]
-pub async fn config_monitor(conf: SConfig, ws_tx: Sender<ServerToClient>) -> Result<()> {
+pub async fn config_monitor(conf: SConfig, ws_tx: Sender<String>) -> Result<()> {
     let (tx, mut rx) = unbounded_channel();
     let mut watcher = notify::recommended_watcher(move |res| {
         tx.send(res).ok();
@@ -29,7 +30,7 @@ pub async fn config_monitor(conf: SConfig, ws_tx: Sender<ServerToClient>) -> Res
                 Ok(new_conf) => {
                     *conf.write().await = new_conf;
                     info!("Successfully reloaded config");
-                    ws_tx.send(ServerToClient::RefreshedConfig).ok();
+                    ws_tx.send(serde_json::to_string(&ServerToClient::RefreshedConfig).unwrap()).ok();
                 },
                 Err(e) => error!("Failed to parse config: {e}")
             }
@@ -43,8 +44,8 @@ fn get_config_path() -> PathBuf {
     Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah")
 }
 
-pub fn load() ->  Result<ServerConfig> {
-    let mut conf: Option<ServerConfig> = None;
+pub fn load() ->  Result<MainConfig> {
+    let mut conf: Option<MainConfig> = None;
     let mut profiles: Vec<Profile> = vec![];
 
     for file in fs::read_dir(get_config_path())?.filter_map(|f|f.ok()) {

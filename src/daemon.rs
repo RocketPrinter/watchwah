@@ -9,14 +9,14 @@ use axum::Router;
 use axum::routing::get;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{error, instrument};
-use crate::common::config::ServerConfig;
-use crate::common::ws_common::ServerToClient;
+use crate::common::config::MainConfig;
+use crate::common::profile::Profile;
 
-type SConfig = Arc<RwLock<ServerConfig>>;
+type SConfig = Arc<RwLock<MainConfig>>;
 
 #[instrument(name="daemon", skip_all)]
 pub async fn daemon() {
-    let (ws_tx, _ws_rx) = broadcast::channel::<ServerToClient>(16);
+    let (ws_tx, _ws_rx) = broadcast::channel::<String>(16);
 
     // config
     let conf = config_service::load()
@@ -27,7 +27,10 @@ pub async fn daemon() {
         if let Err(e) = monitor.await { error!("Monitor service failed: {e}");}
     });
 
-    // timer service
+    // profile
+    let profile: Arc<RwLock<Option<Profile>>> = Arc::new(RwLock::new(None));
+
+    // timer
 
     // axum
     let router = Router::new()

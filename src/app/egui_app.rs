@@ -1,5 +1,6 @@
 use crate::app::SState;
 use eframe::egui;
+use eframe::egui::{ComboBox, ScrollArea};
 use tracing::info;
 
 pub fn run(state: SState) {
@@ -17,16 +18,36 @@ struct EguiApp {
 
 impl EguiApp {
     pub fn new(_cc: &eframe::CreationContext<'_>, state: SState) -> Self {
-        info!("[Client] Startzing egui");
-
+        info!("[Client] Starting egui");
         EguiApp { state }
     }
 }
 
 impl eframe::App for EguiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let state = self.state.lock().unwrap();
+
+        egui::TopBottomPanel::top("bottom").show(ctx, |ui| {
+            // todo: logo w context menu, ws_connected
+            ui.label(format!("Connected: {0}", state.ws_connected));
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Hello World!");
+            ScrollArea::vertical().show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Profile:");
+                    ComboBox::from_label("Select profile")
+                        .selected_text(state.active_profile.as_ref().map(|p|&p.name[..]).unwrap_or("No profile selected!"))
+                        .show_ui(ui, |ui| {
+
+                        })
+                });
+                ui.separator();
+
+                ui.heading("timer module");
+                ui.separator();
+
+                ui.heading("todo");
+            })
         });
     }
 }

@@ -6,23 +6,20 @@ pub struct Profile {
     #[serde(skip, default)] // generated from the file name
     pub name: String,
 
-    pub mode: TimerMode,
+    pub pomodoro: PomodoroSettings,
     pub blocking: Blocking,
     #[serde(default)]
     pub early_stop: EarlyStopBehaviour,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TimerMode {
-    Once,
-    Pomodoro {
-        work_dur: Duration,
-        small_break_dur: Duration,
-        long_break_dur: Option<Duration>,
-        #[serde(default = "break_ratio_default")]
-        /// x short breaks to 1 long break
-        break_ratio: u32,
-    },
+pub struct PomodoroSettings {
+    pub work_dur: Duration,
+    pub small_break_dur: Duration,
+    pub long_break_dur: Option<Duration>,
+    #[serde(default = "break_ratio_default")]
+    /// x short breaks to 1 long break
+    pub break_ratio: u32,
 }
 fn break_ratio_default() -> u32 {3}
 
