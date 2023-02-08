@@ -2,11 +2,13 @@ use crate::common::ws_common::ClientToServer;
 use axum::extract::ws::{Message, WebSocket};
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument};
 use ClientToServer::*;
+use crate::daemon::SState;
 
 #[instrument(name = "server ws", skip_all)]
-pub async fn handle_socket(mut ws: WebSocket, mut rx: Receiver<String>) {
+pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<String>) {
     info!("Connection established"); // todo: log ip/other info2x
     loop {
         select! {
@@ -15,7 +17,7 @@ pub async fn handle_socket(mut ws: WebSocket, mut rx: Receiver<String>) {
                 match received {
                     Ok(Message::Text(text)) => {
                         match serde_json::from_str::<ClientToServer>(&text) {
-                            Ok(msg) => handle_msg(msg),
+                            Ok(msg) => handle_msg(&state, msg).await,
                             Err(e) => error!("Failed to deserialize message: {e}"),
                         }
                     },
@@ -38,19 +40,37 @@ pub async fn handle_socket(mut ws: WebSocket, mut rx: Receiver<String>) {
     }
 }
 
-fn handle_msg(/* todo: more fields */ msg: ClientToServer) {
-    match msg {
-        SetActiveProfile(_) => todo!(),
+async fn send_welcome() {
+    todo!()
+}
 
-        Create(_) => todo!(),
-        PauseTimer => todo!(),
-        UnpauseTimer => todo!(),
-        StopTimer => todo!(),
+async fn handle_msg(state: &SState, msg: ClientToServer) {
+    if let Multiple(msgs) = msg {
+        for msg in msgs {
+            handle_msg_internal(state,msg).await;
+        }
+    } else {
+        handle_msg_internal(state,msg).await;
+    }
 
-        Multiple(msgs) => {
-            for msg in msgs {
-                handle_msg(msg);
-            }
+    async fn handle_msg_internal(state: &SState, msg: ClientToServer) {
+        match msg {
+            SetActiveProfile(name) => {
+                let conf = state.conf.read().await;
+                *state.current_profile.write().await = name.and_then(|name| conf.profiles.iter().find(|p|p.name == name).cloned() );
+
+                let mut token = state.cancel_if_profile_changes.lock().await;
+                token.cancel();
+                *token = CancellationToken::new();
+            },
+
+            Create(_) => todo!(),
+            PauseTimer => todo!(),
+            UnpauseTimer => todo!(),
+            StopTimer => todo!(),
+
+            Multiple(_) => panic!(),
         }
     }
+
 }

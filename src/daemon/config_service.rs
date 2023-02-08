@@ -1,19 +1,20 @@
 use std::fs;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
-use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::unbounded_channel;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument};
-use crate::common::config::MainConfig;
+use crate::daemon::SState;
+use crate::common::config::ServerConfig;
 use crate::common::profile::Profile;
 use crate::common::ws_common::ServerToClient;
-use crate::daemon::{SConfig};
 
 
 #[instrument(name="config monitor", skip_all)]
-pub async fn config_monitor(conf: SConfig, ws_tx: Sender<String>) -> Result<()> {
+pub async fn config_monitor(state: SState) -> Result<()> {
     let (tx, mut rx) = unbounded_channel();
     let mut watcher = notify::recommended_watcher(move |res| {
         tx.send(res).ok();
@@ -28,9 +29,14 @@ pub async fn config_monitor(conf: SConfig, ws_tx: Sender<String>) -> Result<()> 
         {
             match load() {
                 Ok(new_conf) => {
-                    *conf.write().await = new_conf;
+                    *state.conf.write().await = new_conf;
+                    state.current_profile.write().await.take();
+                    // cancel existing token and replace it with a new one
+                    let mut token = state.cancel_if_profile_changes.lock().await;
+                    token.cancel();
+                    *token = CancellationToken::new();
+                    state.ws_tx.send(serde_json::to_string(&ServerToClient::RefreshedConfig).unwrap()).ok();
                     info!("Successfully reloaded config");
-                    ws_tx.send(serde_json::to_string(&ServerToClient::RefreshedConfig).unwrap()).ok();
                 },
                 Err(e) => error!("Failed to parse config: {e}")
             }
@@ -44,8 +50,8 @@ fn get_config_path() -> PathBuf {
     Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah")
 }
 
-pub fn load() ->  Result<MainConfig> {
-    let mut conf: Option<MainConfig> = None;
+pub fn load() ->  Result<ServerConfig> {
+    let mut conf: Option<ServerConfig> = None;
     let mut profiles: Vec<Profile> = vec![];
 
     for file in fs::read_dir(get_config_path())?.filter_map(|f|f.ok()) {

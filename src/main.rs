@@ -1,3 +1,5 @@
+extern crate core;
+
 mod app;
 mod daemon;
 pub mod common {
@@ -11,6 +13,8 @@ use clap::{Parser, Subcommand};
 use tokio::runtime::{Runtime};
 use crate::app::app;
 use crate::daemon::daemon;
+use Command::*;
+use DaemonCommand::*;
 
 // todo: more info and args
 #[derive(Parser)]
@@ -33,6 +37,8 @@ enum Command {
     Together,
     // Installs/Updates the firefox addon
     Addon,
+    /// Copies the default config to $HOME/config/watchwah. Doesn't replace or modify existing files.
+    DefaultConfig,
 }
 
 #[derive(Subcommand)]
@@ -52,28 +58,31 @@ fn main() {
     let _guard = tokio.enter();
 
     match Cli::parse().command {
-        Command::App => {
+        App => {
             todo!()
         }
-        Command::Daemon { command } => match command {
-            DaemonCommand::Start => {
+        Daemon { command } => match command {
+            Start => {
                 todo!()
             }
-            DaemonCommand::Kill => {
+            Kill => {
                 todo!()
             }
-            DaemonCommand::Status => {
+            Status => {
                 todo!()
             }
-            DaemonCommand::Logs => {
+            Logs => {
                 todo!()
             }
         }
-        Command::Together => {
+        Together => {
             tokio::spawn(daemon());
             app();
         },
-        Command::Addon => {
+        Addon => {
+            todo!()
+        }
+        DefaultConfig => {
             todo!()
         }
     }

@@ -3,6 +3,7 @@ mod client_ws;
 //todo: mod client_config;
 
 use std::sync::{Arc, Mutex};
+use eframe::egui::Context;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use crate::common::profile::Profile;
 use crate::common::timer_state::TimerState;
@@ -17,6 +18,7 @@ pub struct State {
 
     pub ws_connected: bool,
     pub ws_tx: UnboundedSender<ClientToServer>,
+    pub egui_context: Option<Context>,
 }
 
 pub fn app() {
@@ -29,6 +31,7 @@ pub fn app() {
         
         ws_connected: false,
         ws_tx,
+        egui_context: None,
     }));
 
     // websocket

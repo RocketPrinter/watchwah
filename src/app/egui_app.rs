@@ -17,7 +17,8 @@ struct EguiApp {
 }
 
 impl EguiApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>, state: SState) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, state: SState) -> Self {
+        { state.lock().unwrap().egui_context = Some(cc.egui_ctx.clone()); }
         info!("[Client] Starting egui");
         EguiApp { state }
     }

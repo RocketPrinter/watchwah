@@ -9,7 +9,7 @@ use crate::app::SState;
 use crate::common::ws_common::{ClientToServer, ServerToClient};
 use ServerToClient::*;
 
-const URL: &str = "ws://localhost:63086/ws";
+const URL: &str = "ws://127.0.0.1:63086/ws";
 
 /// Handles reconnections and message processing
 #[instrument(name = "client ws", skip_all)]
@@ -23,7 +23,10 @@ pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
             Err(err) => err,
         };
         error!("Stopped with error \"{0}\". Retrying in 3 seconds ", e.to_string());
-        state.lock().unwrap().ws_connected = false;
+        if let Ok(mut state) = state.lock(){
+            state.ws_connected = false;
+            if let Some(ref ctx) = state.egui_context {ctx.request_repaint()}
+        }
 
         // wait 3 seconds before retrying
         sleep(Duration::from_secs(3)).await;
@@ -32,7 +35,10 @@ pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
 
 async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiver<ClientToServer>) -> Result<(),WebSocketError> {
     let mut incomplete_payload: Option<String> = None;
-    state.lock().unwrap().ws_connected = true;
+    if let Ok(mut state) = state.lock() {
+        state.ws_connected = true;
+        if let Some(ref ctx) = state.egui_context {ctx.request_repaint()}
+    }
     loop {
         select! {
             // message was received from the websocket that needs to be handled
@@ -78,6 +84,8 @@ fn handle_msg(state: &SState, msg: ServerToClient) {
 
         RefreshedConfig => todo!(), // show a popup
 
-        Multiple(_) =>{}, // already handled
+        Multiple(_) => panic!(),
     }
+
+    if let Some(ref ctx) = state.egui_context {ctx.request_repaint()}
 }

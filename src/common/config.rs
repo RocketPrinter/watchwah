@@ -4,7 +4,7 @@ use crate::common::profile::Profile;
 // todo: move port here
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MainConfig {
+pub struct ServerConfig {
 
     // todo: key
 
