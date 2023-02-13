@@ -1,76 +1,89 @@
-use crate::common::ws_common::ClientToServer;
+use crate::common::ws_common::{ClientToServer, ServerToClient};
+use crate::daemon::{profile_service, SState, timer_service};
+use anyhow::{anyhow, Result};
 use axum::extract::ws::{Message, WebSocket};
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
-use tokio_util::sync::CancellationToken;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 use ClientToServer::*;
-use crate::daemon::SState;
+use crate::daemon::profile_service::set_active_profile;
 
 #[instrument(name = "server ws", skip_all)]
-pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<String>) {
+pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<ServerToClient>) {
     info!("Connection established"); // todo: log ip/other info2x
+
+    if let Err(e) = send_welcome_message(&mut ws, &state).await {
+        error!("Failed to send welcome message: {e}");
+        return;
+    }
+
     loop {
         select! {
             // message was received from websocket
-            Some(received) = ws.recv() =>
+            received = ws.recv() =>
                 match received {
-                    Ok(Message::Text(text)) => {
-                        match serde_json::from_str::<ClientToServer>(&text) {
-                            Ok(msg) => handle_msg(&state, msg).await,
-                            Err(e) => error!("Failed to deserialize message: {e}"),
+                    Some(Ok(Message::Text(msg))) => {
+                        if let Err(e) = handle_receive(&state,msg).await {
+                            error!("Error processing message: {e}")
                         }
                     },
-                    Ok(_) => (),
-                    Err(e) => {
-                        error!("Failed to receive message: {e}");
-                        return; // todo: does an error here mean that the websocket is closed?
-                    }
+                    Some(Ok(_)) => (),
+                    Some(Err(e)) => {error!("Websocket errored: {e}"); return;}
+                    None => {warn!("Websocket closed"); return;}, // stream closed
                 },
             // message was received from broadcast
-            rez = rx.recv() =>
+            rez = rx.recv() =>{
                 match rez {
-                    Ok(text) => if let Err(e) = ws.send(Message::Text(text)).await {
+                    Ok(msg) => if let Err(e) = handle_send(&mut ws, msg).await {
                         error!("Failed to send message: {e}");
-                        return; // todo: does an error here mean that the websocket is closed?
                     },
                     Err(e) => error!("Broadcast error: {e}"),
-                }
+                }}
         }
     }
 }
 
-async fn send_welcome() {
-    todo!()
+async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> {
+    // todo: too many clones :/
+    let msg = ServerToClient::Multiple(vec![
+        profile_service::profiles_msg(state).await,
+        profile_service::active_profile_msg(state).await,
+        timer_service::timer_state_msg(state).await,
+    ]);
+    handle_send(ws, msg).await?;
+    Ok(())
 }
 
-async fn handle_msg(state: &SState, msg: ClientToServer) {
+async fn handle_send(ws: &mut WebSocket, msg: ServerToClient) -> Result<()> {
+    ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;
+    Ok(())
+}
+
+async fn handle_receive(state: &SState, msg: String) -> Result<()> {
+    let msg = serde_json::from_str(&msg)?;
+
     if let Multiple(msgs) = msg {
         for msg in msgs {
-            handle_msg_internal(state,msg).await;
+            handle_msg(state, msg).await?;
         }
     } else {
-        handle_msg_internal(state,msg).await;
+        handle_msg(state, msg).await?;
     }
 
-    async fn handle_msg_internal(state: &SState, msg: ClientToServer) {
-        match msg {
-            SetActiveProfile(name) => {
-                let conf = state.conf.read().await;
-                *state.current_profile.write().await = name.and_then(|name| conf.profiles.iter().find(|p|p.name == name).cloned() );
+    return Ok(());
 
-                let mut token = state.cancel_if_profile_changes.lock().await;
-                token.cancel();
-                *token = CancellationToken::new();
-            },
+    async fn handle_msg(state: &SState, msg: ClientToServer) -> Result<()> {
+        match msg {
+            SetActiveProfile(name) => {state.ws_tx.send(set_active_profile(state, name).await?)?;},
 
             Create(_) => todo!(),
             PauseTimer => todo!(),
             UnpauseTimer => todo!(),
-            StopTimer => todo!(),
+            StopTimer => {state.ws_tx.send(timer_service::stop_timer(state).await?)?;},
 
-            Multiple(_) => panic!(),
+            Multiple(_) => return Err(anyhow!("Recursive messages not supported")),
         }
-    }
 
+        Ok(())
+    }
 }

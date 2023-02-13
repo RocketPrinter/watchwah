@@ -5,13 +5,10 @@ use anyhow::{anyhow, Result};
 use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::sync::mpsc::unbounded_channel;
-use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument};
-use crate::daemon::SState;
+use crate::daemon::{profile_service, SState};
 use crate::common::config::ServerConfig;
 use crate::common::profile::Profile;
-use crate::common::ws_common::ServerToClient;
-
 
 #[instrument(name="config monitor", skip_all)]
 pub async fn config_monitor(state: SState) -> Result<()> {
@@ -29,13 +26,9 @@ pub async fn config_monitor(state: SState) -> Result<()> {
         {
             match load() {
                 Ok(new_conf) => {
+                    let msgs = profile_service::set_active_profile(&state, None).await?;
                     *state.conf.write().await = new_conf;
-                    state.current_profile.write().await.take();
-                    // cancel existing token and replace it with a new one
-                    let mut token = state.cancel_if_profile_changes.lock().await;
-                    token.cancel();
-                    *token = CancellationToken::new();
-                    state.ws_tx.send(serde_json::to_string(&ServerToClient::RefreshedConfig).unwrap()).ok();
+                    state.ws_tx.send(msgs.chain(profile_service::profiles_msg(&state).await))?;
                     info!("Successfully reloaded config");
                 },
                 Err(e) => error!("Failed to parse config: {e}")
