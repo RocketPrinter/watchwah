@@ -14,6 +14,7 @@ pub enum TimerState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CreatedState {
+    Uninit,
     Running {
         start: DateTime<Utc>,
         end: Option<DateTime<Utc>>,

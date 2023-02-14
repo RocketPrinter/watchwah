@@ -1,6 +1,6 @@
 use crate::common::ws_common::{ClientToServer, ServerToClient};
 use crate::daemon::{profile_service, SState, timer_service};
-use anyhow::{anyhow, Result};
+use anyhow::{bail, Result};
 use axum::extract::ws::{Message, WebSocket};
 use tokio::select;
 use tokio::sync::broadcast::Receiver;
@@ -76,12 +76,12 @@ async fn handle_receive(state: &SState, msg: String) -> Result<()> {
         match msg {
             SetActiveProfile(name) => {state.ws_tx.send(set_active_profile(state, name).await?)?;},
 
-            Create(_) => todo!(),
-            PauseTimer => todo!(),
-            UnpauseTimer => todo!(),
+            CreateTimer(goal) => {state.ws_tx.send(timer_service::create_timer(state, goal).await?)?;},
+            PauseTimer => {state.ws_tx.send(timer_service::pause_timer(state).await?)?;},
+            UnpauseTimer => {state.ws_tx.send(timer_service::unpause_timer(state).await?)?;},
             StopTimer => {state.ws_tx.send(timer_service::stop_timer(state).await?)?;},
 
-            Multiple(_) => return Err(anyhow!("Recursive messages not supported")),
+            Multiple(_) => bail!("Recursive messages not supported"),
         }
 
         Ok(())

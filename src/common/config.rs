@@ -14,5 +14,5 @@ pub struct ServerConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientConfig {
-    // todo: key and processing
+    // todo: key
 }

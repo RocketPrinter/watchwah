@@ -6,7 +6,7 @@ use crate::common::timer_state::{TimerGoal, TimerState};
 pub enum ClientToServer {
     SetActiveProfile(Option<String>),
 
-    Create(TimerGoal),
+    CreateTimer(TimerGoal),
     PauseTimer,
     UnpauseTimer,
     StopTimer,

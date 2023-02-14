@@ -24,7 +24,7 @@ pub async fn config_monitor(state: SState) -> Result<()> {
         | EventKind::Modify(_)
         | EventKind::Remove(RemoveKind::File) = res?.kind
         {
-            match load() {
+            match tokio::task::spawn_blocking(load).await.unwrap() {
                 Ok(new_conf) => {
                     let msgs = profile_service::set_active_profile(&state, None).await?;
                     *state.conf.write().await = new_conf;
