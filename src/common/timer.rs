@@ -1,20 +1,24 @@
 use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use crate::common::profile::Profile;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TimerState {
-    NotCreated,
-    Created {
-        state: CreatedState,
-        goal: TimerGoal,
-        pomodoro: Option<PomodoroState>,
-    },
+pub struct Timer {
+    pub goal: TimerGoal,
+    pub profile: Profile,
+
+    pub state: TimerState,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CreatedState {
-    Uninit,
+pub struct TimerState {
+    pub period: TimerPeriod,
+    pub pomodoro: Option<PomodoroState>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TimerPeriod {
     Running {
         start: DateTime<Utc>,
         end: Option<DateTime<Utc>>,

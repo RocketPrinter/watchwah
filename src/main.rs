@@ -6,7 +6,7 @@ pub mod common {
     pub mod ws_common;
     pub mod profile;
     pub mod config;
-    pub mod timer_state;
+    pub mod timer;
 }
 
 use clap::{Parser, Subcommand};
@@ -15,6 +15,7 @@ use crate::app::app;
 use crate::daemon::daemon;
 use Command::*;
 use DaemonCommand::*;
+use crate::common::profile::Profile;
 
 // todo: more info and args
 #[derive(Parser)]

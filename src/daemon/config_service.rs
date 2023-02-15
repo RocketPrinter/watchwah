@@ -1,14 +1,14 @@
 use std::fs;
-use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::sync::mpsc::unbounded_channel;
-use tracing::{error, info, instrument};
-use crate::daemon::{profile_service, SState};
+use tracing::{error, instrument};
+use crate::daemon::{SState, timer_service};
 use crate::common::config::ServerConfig;
 use crate::common::profile::Profile;
+use crate::common::ws_common::ServerToClient;
 
 #[instrument(name="config monitor", skip_all)]
 pub async fn config_monitor(state: SState) -> Result<()> {
@@ -26,10 +26,11 @@ pub async fn config_monitor(state: SState) -> Result<()> {
         {
             match tokio::task::spawn_blocking(load).await.unwrap() {
                 Ok(new_conf) => {
-                    let msgs = profile_service::set_active_profile(&state, None).await?;
                     *state.conf.write().await = new_conf;
-                    state.ws_tx.send(msgs.chain(profile_service::profiles_msg(&state).await))?;
-                    info!("Successfully reloaded config");
+                    if let Ok(msg) = timer_service::stop_timer(&state).await {
+                        state.ws_tx.send(msg).ok();
+                    }
+
                 },
                 Err(e) => error!("Failed to parse config: {e}")
             }
@@ -38,6 +39,20 @@ pub async fn config_monitor(state: SState) -> Result<()> {
 
     Ok(())
 }
+
+pub async fn profiles_msg(state: &SState) -> ServerToClient {
+    ServerToClient::UpdateProfiles(
+        state
+            .conf
+            .read()
+            .await
+            .profiles
+            .iter()
+            .map(|p| p.name.to_string())
+            .collect(),
+    )
+}
+
 
 fn get_config_path() -> PathBuf {
     Path::new(&std::env::var("HOME").unwrap()).join(".config").join("watchwah")

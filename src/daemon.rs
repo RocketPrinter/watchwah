@@ -2,7 +2,6 @@ mod server_ws;
 mod rest;
 mod config_service;
 mod timer_service;
-mod profile_service;
 
 use std::process;
 use std::sync::Arc;
@@ -13,8 +12,7 @@ use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use tokio::sync::broadcast::Sender;
 use tracing::{error, instrument};
 use crate::common::config::ServerConfig;
-use crate::common::profile::Profile;
-use crate::common::timer_state::TimerState;
+use crate::common::timer::Timer;
 use crate::common::ws_common::ServerToClient;
 
 pub type SState = Arc<State>;
@@ -22,9 +20,8 @@ pub struct State {
     pub ws_tx: Sender<ServerToClient>,
 
     pub conf: RwLock<ServerConfig>,
-    pub active_profile: RwLock<Option<Profile>>,
 
-    pub timer: Mutex<TimerState>,
+    pub timer: Mutex<Option<Timer>>,
     pub cancel_timer_tasks: Arc<Notify>,
 }
 
@@ -40,8 +37,7 @@ pub async fn daemon() {
             Ok(conf) => RwLock::new(conf),
             Err(err) => {error!("Unable to load config: {err}"); process::exit(-1)},
         },
-        active_profile: RwLock::new(None),
-        timer: Mutex::new(TimerState::NotCreated),
+        timer: Mutex::new(None),
         cancel_timer_tasks: Arc::new(Notify::new()),
     });
 

@@ -1,53 +1,43 @@
-use std::ops::{Deref, DerefMut};
-use crate::common::timer_state::{TimerGoal};
+use crate::common::timer::{TimerGoal};
 use crate::common::ws_common::ServerToClient;
 use crate::daemon::SState;
-use anyhow::{anyhow, bail, Error, Result};
-use tokio::sync::{MutexGuard, RwLockReadGuard};
-use crate::common::profile::Profile;
-use crate::common::timer_state::CreatedState::Uninit;
-use crate::common::timer_state::TimerState::{Created, NotCreated};
+use anyhow::{bail, Result};
 
-// todo: NOT HANDLING AN INVALID PROFILE
-
-
-
-pub async fn create_timer(state: &SState, goal: TimerGoal) -> Result<ServerToClient> {
-    {
-        let mut timer = state.timer.lock().await;
-        if let Created {..} = timer.deref() { bail!("Timer is already created!")};
-        *timer = Created {
-            state: Uninit,
-            goal,
-            pomodoro: None,
-        }
+pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String) -> Result<ServerToClient> {
+    let timer = state.timer.lock().await;
+    if timer.is_some() {
+        bail!("")
     }
-    unpause_timer(state).await
+
+
+    todo!()
 }
 
 pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
-    match state.timer.lock().await.deref_mut() {
-        Created { ref mut state, .. } => {
-            todo!()
-        },
-        NotCreated => bail!("Timer is not created!"),
-    }
+    let Some(ref mut timer) = *state.timer.lock().await else {
+        bail!("Timer is not created")
+    };
+
+
+
+    todo!()
 }
 
 pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
-    match state.timer.lock().await.deref_mut() {
-        Created { ref mut state, .. } => {
-            todo!()
-        },
-        NotCreated => bail!("Timer is not created!"),
-    }
+    let Some(ref mut timer) = *state.timer.lock().await else {
+        bail!("Timer is not created")
+    };
+
+
+
+    todo!()
 }
 
 pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {
     let mut timer = state.timer.lock().await;
-    if let NotCreated = timer.deref() { bail!("Timer is not created!") }
+    if timer.is_none() { bail!("Timer isn't created!") }
     state.cancel_timer_tasks.notify_waiters();
-    *timer = NotCreated;
+    *timer = None;
 
     Ok(timer_state_msg(state).await)
 }

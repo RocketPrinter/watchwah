@@ -1,12 +1,10 @@
 use serde::{Deserialize, Serialize};
-use crate::common::profile::Profile;
-use crate::common::timer_state::{TimerGoal, TimerState};
+
+use crate::common::timer::{TimerGoal, Timer, TimerState};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientToServer {
-    SetActiveProfile(Option<String>),
-
-    CreateTimer(TimerGoal),
+    CreateTimer { goal: TimerGoal, profile_name: String },
     PauseTimer,
     UnpauseTimer,
     StopTimer,
@@ -19,8 +17,8 @@ pub enum ClientToServer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerToClient {
     UpdateProfiles(Vec<String>),
-    UpdateActiveProfile(Option<Profile>),
-    UpdateTimer(TimerState),
+    UpdateTimer(Option<Timer>),
+    UpdateTimerState(TimerState),
 
     // todo: UpdateTodos
 
