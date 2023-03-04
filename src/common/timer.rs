@@ -5,15 +5,26 @@ use crate::common::profile::Profile;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Timer {
-    pub goal: TimerGoal,
+    // immutable
     pub profile: Profile,
 
+    // mutable
     pub state: TimerState,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TimerGoal {
+    /// overrides EarlyStopBehaviour::Never
+    Endless,
+    /// total never changes while left shows the remaining time
+    Time { left: Duration, total: Duration },
+    Todos(u32),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimerState {
     pub period: TimerPeriod,
+    pub goal: TimerGoal,
     pub pomodoro: Option<PomodoroState>,
 }
 
@@ -24,17 +35,8 @@ pub enum TimerPeriod {
         end: Option<DateTime<Utc>>,
     },
     Paused {
-        dur_left: Duration,
+        dur_left: Option<Duration>,
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TimerGoal {
-    /// overrides EarlyStopBehaviour::Never
-    Endless,
-    /// total never changes while left shows the remaining time
-    Time { left: Duration, total: Duration },
-    Todos(u32),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

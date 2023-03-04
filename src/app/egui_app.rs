@@ -37,7 +37,7 @@ impl eframe::App for EguiApp {
                 ui.horizontal(|ui| {
                     ui.label("Profile:");
                     ComboBox::from_label("Select profile")
-                        .selected_text(state.active_profile.as_ref().map(|p|&p.name[..]).unwrap_or("No profile selected!"))
+                        //.selected_text(state.active_profile.as_ref().map(|p|&p.name[..]).unwrap_or("No profile selected!"))
                         .show_ui(ui, |ui| {
 
                         })

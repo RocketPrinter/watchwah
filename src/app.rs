@@ -5,7 +5,6 @@ mod client_ws;
 use std::sync::{Arc, Mutex};
 use eframe::egui::Context;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
-use crate::common::profile::Profile;
 use crate::common::timer::Timer;
 use crate::common::ws_common::ClientToServer;
 

@@ -1,20 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {
     #[serde(skip, default)] // generated from the file name
     pub name: String,
 
-    #[serde(default)]
     pub pomodoro: Option<PomodoroSettings>,
     #[serde(default)]
     pub blocking: Blocking,
     #[serde(default)]
     pub early_stop: EarlyStopBehaviour,
 }
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+ 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PomodoroSettings {
     pub work_dur: Duration,
     pub small_break_dur: Duration,
