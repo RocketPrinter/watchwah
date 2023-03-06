@@ -16,13 +16,14 @@ pub struct Timer {
 pub enum TimerGoal {
     /// overrides EarlyStopBehaviour::Never
     Endless,
-    /// total never changes while left shows the remaining time
-    Time { left: Duration, total: Duration },
+    Time (Duration),
     Todos(u32),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimerState {
+    /// Doesn't include the current running period
+    pub total_dur: Duration,
     pub period: TimerPeriod,
     pub goal: TimerGoal,
     pub pomodoro: Option<PomodoroState>,

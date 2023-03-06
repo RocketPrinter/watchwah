@@ -10,6 +10,7 @@ use axum::Router;
 use axum::routing::get;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use tokio::sync::broadcast::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::{error, instrument};
 use crate::common::config::ServerConfig;
 use crate::common::timer::Timer;
@@ -17,7 +18,7 @@ use crate::common::ws_common::ServerToClient;
 
 pub type SState = Arc<State>;
 pub struct State {
-    pub ws_tx: Sender<ServerToClient>,
+    pub ws_tx: UnboundedSender<ServerToClient>,
 
     pub conf: RwLock<ServerConfig>,
 
@@ -28,10 +29,10 @@ pub struct State {
 #[instrument(name="daemon", skip_all)]
 pub async fn daemon() {
     // state
-    let (ws_tx, _ws_rx) = broadcast::channel::<ServerToClient>(16);
+    let (ws_tx, _ws_rx) = broadcast::channel::<String>(16);
 
     let state = Arc::new(State{
-        ws_tx: ws_tx.clone(),
+        ws_tx: server_ws::serialize_incoming(ws_tx),
 
         conf: match config_service::load() {
             Ok(conf) => RwLock::new(conf),

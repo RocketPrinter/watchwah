@@ -1,14 +1,37 @@
+use std::sync::Arc;
 use crate::common::ws_common::{ClientToServer, ServerToClient};
 use crate::daemon::{config_service, SState, timer_service};
 use anyhow::{bail, Result};
 use axum::extract::ws::{Message, WebSocket};
 use tokio::select;
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tracing::{error, info, instrument, warn};
 use ClientToServer::*;
 
+pub fn serialize_incoming(broadcast_tx: Sender<String>) -> UnboundedSender<ServerToClient>{
+    let (tx,mut rx) = unbounded_channel::<ServerToClient>();
+
+    tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            let msg = match serde_json::to_string(&msg) {
+                Ok(msg) => msg,
+                Err(e) => {
+                    error!("Failed to serialize message: {e}");
+                    continue;
+                }
+            };
+            if let Err(e) = broadcast_tx.send(msg) {
+                error!("Failed to send message: {e}");
+            }
+        }
+    });
+
+    tx
+}
+
 #[instrument(name = "server ws", skip_all)]
-pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<ServerToClient>) {
+pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<String>) {
     info!("Connection established"); // todo: log ip/other info2x
 
     if let Err(e) = send_welcome_message(&mut ws, &state).await {
@@ -33,7 +56,7 @@ pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<Se
             // message was received from broadcast
             rez = rx.recv() =>{
                 match rez {
-                    Ok(msg) => if let Err(e) = handle_send(&mut ws, msg).await {
+                    Ok(msg) => if let Err(e) = ws.send(Message::Text(msg)).await {
                         error!("Failed to send message: {e}");
                     },
                     Err(e) => error!("Broadcast error: {e}"),
@@ -46,13 +69,8 @@ async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> 
     // todo: too many clones :/
     let msg = ServerToClient::Multiple(vec![
         config_service::profiles_msg(state).await,
-        timer_service::timer_msg(state).await,
+        ServerToClient::UpdateTimer(state.timer.lock().await.clone()),
     ]);
-    handle_send(ws, msg).await?;
-    Ok(())
-}
-
-async fn handle_send(ws: &mut WebSocket, msg: ServerToClient) -> Result<()> {
     ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;
     Ok(())
 }

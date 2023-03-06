@@ -1,6 +1,7 @@
+use std::time::Duration;
 use crate::common::timer::{PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState};
 use crate::common::ws_common::ServerToClient;
-use crate::daemon::SState;
+use crate::daemon::{SState, State};
 use anyhow::{anyhow, bail, Result};
 use chrono::Utc;
 
@@ -12,19 +13,17 @@ pub async fn create_timer(state: &SState, mut goal: TimerGoal, profile_name: Str
 
     let profile = state.conf.read().await.profiles.iter().find(|p| p.name == profile_name).ok_or_else(|| anyhow!("Profile not found"))?.clone();
 
-    // set the time left to the pomodoro work period. or never
-    let mut dur_left = profile.pomodoro.as_ref().map(|p| p.work_dur);
+    // set the time left to the pomodoro work period, or never
+    let mut starting_dur = profile.pomodoro.as_ref().map(|p| p.work_dur);
+
     // if the goal is time-based, make sure we don't overshoot the time left
-    if let TimerGoal::Time { ref mut left, ..} = goal {
-        if dur_left.is_none() || dur_left.unwrap() > *left {
-            dur_left = Some(*left);
-        }
-        // subtract the time left from the goal
-        *left -= dur_left.unwrap();
+    if let TimerGoal::Time (ref dur) = goal {
+        starting_dur = min_option_dur(starting_dur, Some(*dur));
     }
 
-    let state = TimerState {
-        period: TimerPeriod::Paused { dur_left },
+    let timer_state = TimerState {
+        total_dur: Default::default(),
+        period: TimerPeriod::Paused { dur_left: starting_dur },
         goal,
         pomodoro: profile.pomodoro.as_ref().map(|_| PomodoroState {
                 current_period: PomodoroPeriod::Work,
@@ -32,9 +31,11 @@ pub async fn create_timer(state: &SState, mut goal: TimerGoal, profile_name: Str
             }),
     };
 
-    *timer = Some(Timer { profile, state });
+    *timer = Some(Timer { profile, state: timer_state });
 
-    todo!()
+
+    unpause_timer(state).await?;
+    Ok(ServerToClient::UpdateTimer(timer.clone()))
 }
 
 pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
@@ -87,9 +88,14 @@ pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {
     state.cancel_timer_tasks.notify_waiters();
     *timer = None;
 
-    Ok(timer_msg(state).await)
+    Ok(ServerToClient::UpdateTimer(None))
 }
 
-pub async fn timer_msg(state: &SState) -> ServerToClient {
-    ServerToClient::UpdateTimer(state.timer.lock().await.clone())
+fn min_option_dur(a: Option<Duration>, b: Option<Duration>) -> Option<Duration> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    }
 }
