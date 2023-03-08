@@ -15,7 +15,6 @@ use crate::app::app;
 use crate::daemon::daemon;
 use Command::*;
 use DaemonCommand::*;
-use crate::common::profile::Profile;
 
 // todo: more info and args
 #[derive(Parser)]

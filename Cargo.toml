@@ -9,6 +9,7 @@ edition = "2021"
 clap = { version = "4.0.32", features = ["derive"] }
 eframe = "0.21.0"
 serde = { version = "1.0.152", features = ["derive"] }
+serde_with = { version = "2.2.0", features = ["chrono_0_4", "json"] }
 toml = "0.7.0"
 daemonize = "0.4.1"
 tracing = "0.1.37"

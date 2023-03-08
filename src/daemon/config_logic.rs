@@ -5,7 +5,7 @@ use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, instrument};
-use crate::daemon::{SState, timer_service};
+use crate::daemon::{SState, timer_logic};
 use crate::common::config::ServerConfig;
 use crate::common::profile::Profile;
 use crate::common::ws_common::ServerToClient;
@@ -27,10 +27,9 @@ pub async fn config_monitor(state: SState) -> Result<()> {
             match tokio::task::spawn_blocking(load).await.unwrap() {
                 Ok(new_conf) => {
                     *state.conf.write().await = new_conf;
-                    if let Ok(msg) = timer_service::stop_timer(&state).await {
+                    if let Ok(msg) = timer_logic::stop_timer(&state).await {
                         state.ws_tx.send(msg).ok();
                     }
-
                 },
                 Err(e) => error!("Failed to parse config: {e}")
             }

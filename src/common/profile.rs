@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use chrono::Duration;
+use serde_with::{serde_as, DurationSeconds};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Profile {
@@ -12,11 +13,15 @@ pub struct Profile {
     #[serde(default)]
     pub early_stop: EarlyStopBehaviour,
 }
- 
+
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PomodoroSettings {
+    #[serde_as(as = "DurationSeconds<i64>")]
     pub work_dur: Duration,
+    #[serde_as(as = "DurationSeconds<i64>")]
     pub small_break_dur: Duration,
+    #[serde_as(as = "Option<DurationSeconds<i64>>")]
     pub long_break_dur: Option<Duration>,
     #[serde(default = "break_ratio_default")]
     /// x short breaks to 1 long break
@@ -34,10 +39,11 @@ pub struct Blocking {
     pub hide_web_video: bool,
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum EarlyStopBehaviour {
     NeverAllowed,
-    AllowedAfter(Duration),
+    AllowedAfter(#[serde_as(as = "DurationSeconds<i64>")]Duration),
     AlwaysAllowed,
 }
 impl Default for EarlyStopBehaviour {

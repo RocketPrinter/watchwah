@@ -1,9 +1,10 @@
-use std::time::Duration;
 use crate::common::timer::{PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState};
 use crate::common::ws_common::ServerToClient;
 use crate::daemon::{SState, State};
 use anyhow::{anyhow, bail, Result};
-use chrono::Utc;
+use chrono::{Duration,Utc};
+use tokio::select;
+use tracing::error;
 
 pub async fn create_timer(state: &SState, mut goal: TimerGoal, profile_name: String) -> Result<ServerToClient> {
     let mut timer = state.timer.lock().await;
@@ -22,16 +23,15 @@ pub async fn create_timer(state: &SState, mut goal: TimerGoal, profile_name: Str
     }
 
     let timer_state = TimerState {
-        total_dur: Default::default(),
+        total_dur: Duration::zero(),
         period: TimerPeriod::Paused { dur_left: starting_dur },
-        goal,
         pomodoro: profile.pomodoro.as_ref().map(|_| PomodoroState {
                 current_period: PomodoroPeriod::Work,
                 small_breaks: 0,
             }),
     };
 
-    *timer = Some(Timer { profile, state: timer_state });
+    *timer = Some(Timer { profile, goal, state: timer_state });
 
 
     unpause_timer(state).await?;
@@ -49,7 +49,7 @@ pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
         TimerPeriod::Paused {..} => bail!("Timer is already paused"),
         TimerPeriod::Running { end, .. } => {
             TimerPeriod::Paused {
-                dur_left: end.and_then(|end| (end - Utc::now()).to_std().ok() ),
+                dur_left: end.map(|end| end - Utc::now() ),
             }
         },
     };
@@ -65,12 +65,20 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
     timer.state.period = match timer.state.period {
         TimerPeriod::Running {..} => bail!("Timer is already running!"),
         TimerPeriod::Paused { dur_left } => {
-            // todo: this is a bit ugly
-            let dur_left = dur_left.and_then(|dur_left| chrono::Duration::from_std(dur_left).ok() );
+
             let now = Utc::now();
             let end = dur_left.and_then(|dur_left| now.checked_add_signed(dur_left) );
 
-            // todo: start task here
+            if let Some(dur_left) = dur_left {
+                // cancel any existing timer tasks
+                state.cancel_timer_tasks.notify_waiters();
+                let state = state.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = update_timer_task(state, dur_left).await {
+                        error!("Error in timer task: {e}")
+                    }
+                });
+            }
 
             TimerPeriod::Running {
                 start: now,
@@ -80,6 +88,34 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
     };
 
     Ok(ServerToClient::UpdateTimerState(timer.state.clone()))
+}
+
+async fn update_timer_task(state: SState, awake_in: Duration) -> Result<()> {
+    select! {
+        _ = state.cancel_timer_tasks.notified() => {return Ok(())}
+        _ = tokio::time::sleep(awake_in.to_std()?) => { }
+    }
+
+    let Some(ref mut timer) =  *state.timer.lock().await else {
+        bail!("Timer is not created")
+    };
+    if let TimerPeriod::Paused{..} = timer.state.period {
+        bail!("Timer is paused")
+    }
+
+    match &mut timer.state.pomodoro {
+        Some(ref mut pomdoro) => {
+            todo!()
+        },
+        None => {
+            // it means that the duration ended so we can stop the timer
+            // quick sanity check:
+            let TimerGoal::Time{..} = timer.goal else { bail!("Reaching this state should be impossible"); };
+            state.ws_tx.send(stop_timer(&state).await?)?;
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {

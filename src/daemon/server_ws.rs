@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::common::ws_common::{ClientToServer, ServerToClient};
-use crate::daemon::{config_service, SState, timer_service};
+use crate::daemon::{config_logic, SState, timer_logic};
 use anyhow::{bail, Result};
 use axum::extract::ws::{Message, WebSocket};
 use tokio::select;
@@ -68,7 +68,7 @@ pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<St
 async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> {
     // todo: too many clones :/
     let msg = ServerToClient::Multiple(vec![
-        config_service::profiles_msg(state).await,
+        config_logic::profiles_msg(state).await,
         ServerToClient::UpdateTimer(state.timer.lock().await.clone()),
     ]);
     ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;
@@ -90,10 +90,10 @@ async fn handle_receive(state: &SState, msg: String) -> Result<()> {
 
     async fn handle_msg(state: &SState, msg: ClientToServer) -> Result<()> {
         let response = match msg {
-            CreateTimer { goal, profile_name } => timer_service::create_timer(state, goal, profile_name).await?,
-            PauseTimer => timer_service::pause_timer(state).await?,
-            UnpauseTimer => timer_service::unpause_timer(state).await?,
-            StopTimer => timer_service::stop_timer(state).await?,
+            CreateTimer { goal, profile_name } => timer_logic::create_timer(state, goal, profile_name).await?,
+            PauseTimer => timer_logic::pause_timer(state).await?,
+            UnpauseTimer => timer_logic::unpause_timer(state).await?,
+            StopTimer => timer_logic::stop_timer(state).await?,
 
             Multiple(_) => bail!("Recursive messages not supported"),
         };
