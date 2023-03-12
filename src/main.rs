@@ -9,8 +9,14 @@ pub mod common {
     pub mod timer;
 }
 
+use axum::handler::Handler;
 use clap::{Parser, Subcommand};
 use tokio::runtime::{Runtime};
+use tracing::Level;
+use tracing_subscriber::fmt::Layer;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use crate::app::app;
 use crate::daemon::daemon;
 use Command::*;
@@ -92,8 +98,11 @@ fn main() {
 fn init() -> Runtime {
     // logging
     // todo: https://tokio.rs/tokio/topics/tracing-next-steps
-    let subscriber = tracing_subscriber::fmt().finish();
-    tracing::subscriber::set_global_default(subscriber).unwrap();
+
+    tracing_subscriber::registry()
+        .with(console_subscriber::spawn())
+        .with(Layer::new().with_writer(std::io::stdout.with_max_level(Level::INFO)))
+        .init();
 
     // tokio runtime
     Runtime::new().unwrap()
