@@ -66,11 +66,11 @@ pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<St
 }
 
 async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> {
-    // todo: too many clones :/
     let msg = ServerToClient::Multiple(vec![
         config_logic::profiles_msg(state).await,
         ServerToClient::UpdateTimer(state.timer.lock().await.clone()),
     ]);
+
     ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;
     Ok(())
 }

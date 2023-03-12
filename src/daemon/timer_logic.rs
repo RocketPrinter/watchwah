@@ -4,9 +4,9 @@ use crate::daemon::{SState, State};
 use anyhow::{anyhow, bail, Result};
 use chrono::{Duration,Utc};
 use tokio::select;
-use tracing::error;
+use tracing::{error, info};
 
-pub async fn create_timer(state: &SState, mut goal: TimerGoal, profile_name: String) -> Result<ServerToClient> {
+pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String) -> Result<ServerToClient> {
     let mut timer = state.timer.lock().await;
     if timer.is_some() {
         bail!("Timer is already created")
@@ -32,10 +32,14 @@ pub async fn create_timer(state: &SState, mut goal: TimerGoal, profile_name: Str
     };
 
     *timer = Some(Timer { profile, goal, state: timer_state });
+    let msg = ServerToClient::UpdateTimer(timer.clone());
 
+    info!("Timer created");
 
+    drop(timer);
     unpause_timer(state).await?;
-    Ok(ServerToClient::UpdateTimer(timer.clone()))
+
+    Ok(msg)
 }
 
 pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
@@ -54,6 +58,7 @@ pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
         },
     };
 
+    info!("Timer paused");
     Ok(ServerToClient::UpdateTimerState(timer.state.clone()))
 }
 
@@ -87,10 +92,12 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
         },
     };
 
+    info!("Timer unpaused");
     Ok(ServerToClient::UpdateTimerState(timer.state.clone()))
 }
 
 async fn update_timer_task(state: SState, awake_in: Duration) -> Result<()> {
+    info!("Waiting {awake_in:?}");
     select! {
         _ = state.cancel_timer_tasks.notified() => {return Ok(())}
         _ = tokio::time::sleep(awake_in.to_std()?) => { }
@@ -104,7 +111,7 @@ async fn update_timer_task(state: SState, awake_in: Duration) -> Result<()> {
     }
 
     match &mut timer.state.pomodoro {
-        Some(ref mut pomdoro) => {
+        Some(ref mut _pomdoro) => {
             todo!()
         },
         None => {
@@ -124,6 +131,7 @@ pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {
     state.cancel_timer_tasks.notify_waiters();
     *timer = None;
 
+    info!("Timer stopped");
     Ok(ServerToClient::UpdateTimer(None))
 }
 

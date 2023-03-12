@@ -15,10 +15,10 @@ pub struct Timer {
 
 
 #[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TimerGoal {
     /// overrides EarlyStopBehaviour::Never
-    Endless,
+    None,
     Time (#[serde_as(as = "DurationSeconds<i64>")]Duration),
     Todos(u32),
 }

@@ -1,4 +1,4 @@
-mod egui_app;
+mod egui;
 mod client_ws;
 //todo: mod client_config;
 
@@ -36,5 +36,5 @@ pub fn app() {
     tokio::spawn(async { client_ws::ws_loop(sc, ws_rx).await });
 
     // egui
-    egui_app::run(state);
+    egui::run(state);
 }
