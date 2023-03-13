@@ -27,7 +27,7 @@ pub struct State {
 }
 
 #[instrument(name = "daemon", skip_all)]
-pub async fn daemon() {
+pub fn daemon() {
     // state
     let (ws_tx, _ws_rx) = broadcast::channel::<String>(16);
 

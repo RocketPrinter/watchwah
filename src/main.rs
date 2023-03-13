@@ -3,22 +3,22 @@ extern crate core;
 mod app;
 mod daemon;
 pub mod common {
-    pub mod ws_common;
-    pub mod profile;
     pub mod config;
+    pub mod profile;
     pub mod timer;
+    pub mod ws_common;
 }
 
+use crate::app::app;
+use crate::daemon::daemon;
 use axum::handler::Handler;
 use clap::{Parser, Subcommand};
-use tokio::runtime::{Runtime};
-use tracing::Level;
-use tracing_subscriber::fmt::Layer;
+use tokio::runtime::Runtime;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use crate::app::app;
-use crate::daemon::daemon;
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::Layer;
 use Command::*;
 use DaemonCommand::*;
 
@@ -37,7 +37,7 @@ enum Command {
     /// Commands regarding the daemon
     Daemon {
         #[command(subcommand)]
-        command: DaemonCommand
+        command: DaemonCommand,
     },
     /// Start the app and daemon in the same process
     Together,
@@ -80,11 +80,11 @@ fn main() {
             Logs => {
                 todo!()
             }
-        }
-        Together => {
-            tokio::spawn(daemon());
-            app();
         },
+        Together => {
+            daemon();
+            app();
+        }
         Addon => {
             todo!()
         }
@@ -94,14 +94,15 @@ fn main() {
     }
 }
 
-
 fn init() -> Runtime {
     // logging
     // todo: https://tokio.rs/tokio/topics/tracing-next-steps
 
     tracing_subscriber::registry()
         .with(console_subscriber::spawn())
-        .with(Layer::new().with_writer(std::io::stdout.with_max_level(Level::INFO)))
+        .with(tracing_subscriber::fmt::layer().with_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        ))
         .init();
 
     // tokio runtime

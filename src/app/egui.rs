@@ -1,12 +1,13 @@
 mod duration_widget;
 mod create_timer_widget;
+mod timer_widget;
 
 use crate::app::SState;
 use eframe::egui;
 use eframe::egui::{Button, ComboBox, ScrollArea};
-use tracing::info;
-use crate::common::timer::{TimerGoal};
+use tracing::{info, instrument};
 
+#[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
@@ -28,7 +29,7 @@ impl EguiApp {
         {
             state.lock().unwrap().egui_context = Some(cc.egui_ctx.clone());
         }
-        info!("[Client] Starting egui");
+        info!("Starting egui");
         EguiApp {
             state,
 
@@ -49,12 +50,11 @@ impl eframe::App for EguiApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            match &mut state.timer {
-                Some(_) => {
-                    ui.label("Timer running");
-                },
-                None => create_timer_widget::ui(ui, &mut self.create_timer, &state),
-            }
+           if state.timer.is_some() {
+               timer_widget::ui(ui, &state);
+           } else {
+               create_timer_widget::ui(ui, &mut self.create_timer, &state);
+           }
         });
     }
 }

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::Duration;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,7 +27,9 @@ pub struct PomodoroSettings {
     /// x short breaks to 1 long break
     pub break_ratio: u32,
 }
-fn break_ratio_default() -> u32 {3}
+fn break_ratio_default() -> u32 {
+    3
+}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Blocking {
@@ -40,14 +42,10 @@ pub struct Blocking {
 }
 
 #[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum EarlyStopBehaviour {
+    #[default]
     NeverAllowed,
-    AllowedAfter(#[serde_as(as = "DurationSeconds<i64>")]Duration),
+    AllowedAfter(#[serde_as(as = "DurationSeconds<i64>")] Duration),
     AlwaysAllowed,
-}
-impl Default for EarlyStopBehaviour {
-    fn default() -> Self {
-        EarlyStopBehaviour::AlwaysAllowed
-    }
 }

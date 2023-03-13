@@ -32,14 +32,12 @@ pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String)
     };
 
     *timer = Some(Timer { profile, goal, state: timer_state });
-    let msg = ServerToClient::UpdateTimer(timer.clone());
-
     info!("Timer created");
 
     drop(timer);
     unpause_timer(state).await?;
 
-    Ok(msg)
+    Ok(ServerToClient::UpdateTimer(state.timer.lock().await.clone()))
 }
 
 pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
@@ -103,7 +101,8 @@ async fn update_timer_task(state: SState, awake_in: Duration) -> Result<()> {
         _ = tokio::time::sleep(awake_in.to_std()?) => { }
     }
 
-    let Some(ref mut timer) =  *state.timer.lock().await else {
+    let mut mutex =  state.timer.lock().await;
+    let Some(ref mut timer) =  *mutex else {
         bail!("Timer is not created")
     };
     if let TimerPeriod::Paused{..} = timer.state.period {
@@ -118,6 +117,7 @@ async fn update_timer_task(state: SState, awake_in: Duration) -> Result<()> {
             // it means that the duration ended so we can stop the timer
             // quick sanity check:
             let TimerGoal::Time{..} = timer.goal else { bail!("Reaching this state should be impossible"); };
+            drop(mutex);
             state.ws_tx.send(stop_timer(&state).await?)?;
         }
     }

@@ -51,7 +51,7 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
                         // message has finalized, we can handle it
                         match serde_json::from_str::<ServerToClient>(&payload) {
                             Ok(payload) => handle_msg(state,payload),
-                            Err(e) => error!("[Client WS] Failed to deserialize message: {e}")
+                            Err(e) => error!("Failed to deserialize message: {e}")
                         }
                     } else {
                         // message is not finalized yet
@@ -63,7 +63,7 @@ async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiv
             Some(msg) = rx.recv() =>
                 match serde_json::to_string(&msg) {
                     Ok(text) => ws.send(Frame::text(text)).await?,
-                    Err(e) => error!("[Client WS] Failed to serialize message: {e}"),
+                    Err(e) => error!("Failed to serialize message: {e}"),
                 },
         }
     }
