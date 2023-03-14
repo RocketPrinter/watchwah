@@ -8,7 +8,7 @@ pub fn ui(ui: &mut Ui, dur: &mut Duration) -> Response {
         let mut hours = dur.num_hours();
 
         ui.add(DragValue::new(&mut hours).clamp_range(0..=999).suffix("h"));
-        ui.add(DragValue::new(&mut minutes).clamp_range(0..=59).suffix("m"));
+        ui.add(DragValue::new(&mut minutes).clamp_range(if hours == 0 {1..=59} else {0..=59}).suffix("m"));
 
         *dur = Duration::hours(hours) + Duration::minutes(minutes);
     })

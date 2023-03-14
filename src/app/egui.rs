@@ -1,5 +1,5 @@
-mod duration_widget;
 mod create_timer_widget;
+mod duration_widget;
 mod timer_widget;
 
 use crate::app::SState;
@@ -21,6 +21,7 @@ pub fn run(state: SState) {
 struct EguiApp {
     state: SState,
 
+    owo: i32,
     create_timer: create_timer_widget::CreateTimerState,
 }
 
@@ -33,6 +34,7 @@ impl EguiApp {
         EguiApp {
             state,
 
+            owo: 0,
             create_timer: create_timer_widget::CreateTimerState::default(),
         }
     }
@@ -50,11 +52,14 @@ impl eframe::App for EguiApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-           if state.timer.is_some() {
-               timer_widget::ui(ui, &state);
-           } else {
-               create_timer_widget::ui(ui, &mut self.create_timer, &state);
-           }
+            ui.label(self.owo.to_string());
+            self.owo += 1;
+
+            if state.timer.is_some() {
+                timer_widget::ui(ui, &state);
+            } else {
+                create_timer_widget::ui(ui, &mut self.create_timer, &state);
+            }
         });
     }
 }

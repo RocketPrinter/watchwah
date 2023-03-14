@@ -42,6 +42,8 @@ pub enum TimerPeriod {
     },
     Paused {
         #[serde_as(as = "Option<DurationSeconds<i64>>")]
+        total: Option<Duration>,
+        #[serde_as(as = "Option<DurationSeconds<i64>>")]
         dur_left: Option<Duration>,
     }
 }
