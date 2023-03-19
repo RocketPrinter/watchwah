@@ -26,9 +26,6 @@ pub enum TimerGoal {
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimerState {
-    /// Doesn't include the current running period
-    #[serde_as(as = "DurationSeconds<i64>")]
-    pub total_dur: Duration,
     pub period: TimerPeriod,
     pub pomodoro: Option<PomodoroState>,
 }
@@ -37,7 +34,8 @@ pub struct TimerState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TimerPeriod {
     Running {
-        start: DateTime<Utc>,
+        #[serde_as(as = "Option<DurationSeconds<i64>>")]
+        total: Option<Duration>,
         end: Option<DateTime<Utc>>,
     },
     Paused {
@@ -48,8 +46,12 @@ pub enum TimerPeriod {
     }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PomodoroState {
+    /// Doesn't include the current period
+    #[serde_as(as = "DurationSeconds<i64>")]
+    pub total_dur_worked: Duration,
     pub current_period: PomodoroPeriod,
     /// small breaks since the last long break
     pub small_breaks: u32,

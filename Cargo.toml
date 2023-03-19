@@ -20,6 +20,7 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 
 eframe = "0.21.0"
+#egui_extras = "0.21.0"
 
 axum = { version = "0.6.2", features = ["ws", "macros", "http2"] }
 websockets = "0.3.0"

@@ -23,10 +23,10 @@ pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String)
     }
 
     let timer_state = TimerState {
-        total_dur: Duration::zero(),
-        period: TimerPeriod::Paused { dur_left: starting_dur },
+        period: TimerPeriod::Paused { total: starting_dur, dur_left: starting_dur },
         pomodoro: profile.pomodoro.as_ref().map(|_| PomodoroState {
-                current_period: PomodoroPeriod::Work,
+            total_dur_worked: Duration::zero(),
+            current_period: PomodoroPeriod::Work,
                 small_breaks: 0,
             }),
     };
@@ -49,8 +49,9 @@ pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
 
     timer.state.period = match timer.state.period {
         TimerPeriod::Paused {..} => bail!("Timer is already paused"),
-        TimerPeriod::Running { end, .. } => {
+        TimerPeriod::Running { total, end } => {
             TimerPeriod::Paused {
+                total,
                 dur_left: end.map(|end| end - Utc::now() ),
             }
         },
@@ -67,10 +68,9 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
 
     timer.state.period = match timer.state.period {
         TimerPeriod::Running {..} => bail!("Timer is already running!"),
-        TimerPeriod::Paused { dur_left } => {
+        TimerPeriod::Paused { total, dur_left } => {
 
-            let now = Utc::now();
-            let end = dur_left.and_then(|dur_left| now.checked_add_signed(dur_left) );
+            let end = dur_left.and_then(|dur_left|  Utc::now().checked_add_signed(dur_left) );
 
             if let Some(dur_left) = dur_left {
                 // cancel any existing timer tasks
@@ -84,7 +84,7 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
             }
 
             TimerPeriod::Running {
-                start: now,
+                total,
                 end,
             }
         },

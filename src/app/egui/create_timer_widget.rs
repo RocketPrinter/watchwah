@@ -1,9 +1,11 @@
-use crate::app::egui::duration_widget;
+use std::sync::Arc;
+use crate::app::egui::duration_input_widget;
 use crate::app::State;
 use crate::common::timer::TimerGoal;
 use crate::common::ws_common::ClientToServer;
 use chrono::Duration;
 use eframe::egui::{Button, ComboBox, Ui};
+use eframe::egui::mutex::Mutex;
 
 pub struct CreateTimerState {
     pub selected_profile: Option<String>,
@@ -19,7 +21,13 @@ impl Default for CreateTimerState {
     }
 }
 
-pub fn ui(ui: &mut Ui, data: &mut CreateTimerState, state: &State) {
+pub fn ui(ui: &mut Ui, state: &State) {
+    let state_id = ui.id().with("create_timer");
+    let data = ui.data_mut(|d| {
+        d.get_temp_mut_or_insert_with(state_id, || Arc::new(Mutex::new( CreateTimerState::default()))).clone()
+    });
+    let mut data = data.lock();
+
     // Profile
     ui.horizontal(|ui| {
         // in case the profile doesn't exist anymore
@@ -32,6 +40,7 @@ pub fn ui(ui: &mut Ui, data: &mut CreateTimerState, state: &State) {
             data.selected_profile = None;
         }
         ui.label("Profile:");
+
         ComboBox::from_id_source("profile_select")
             .selected_text(
                 data.selected_profile
@@ -69,7 +78,7 @@ pub fn ui(ui: &mut Ui, data: &mut CreateTimerState, state: &State) {
         TimerGoal::Time(ref mut duration) => {
             ui.horizontal(|ui| {
                 ui.label("Duration:");
-                duration_widget::ui(ui, duration);
+                duration_input_widget::ui(ui, duration);
             });
         }
         TimerGoal::Todos(_count) => {
