@@ -5,6 +5,7 @@ use anyhow::{anyhow, bail, Result};
 use chrono::{Duration,Utc};
 use tokio::select;
 use tracing::{error, info};
+use crate::common::profile::Profile;
 
 pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String) -> Result<ServerToClient> {
     let mut timer = state.timer.lock().await;
@@ -12,18 +13,13 @@ pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String)
         bail!("Timer is already created")
     }
 
+    // find profile
     let profile = state.conf.read().await.profiles.iter().find(|p| p.name == profile_name).ok_or_else(|| anyhow!("Profile not found"))?.clone();
 
-    // set the time left to the pomodoro work period, or never
-    let mut starting_dur = profile.pomodoro.as_ref().map(|p| p.work_dur);
-
-    // if the goal is time-based, make sure we don't overshoot the time left
-    if let TimerGoal::Time (ref dur) = goal {
-        starting_dur = min_option_dur(starting_dur, Some(*dur));
-    }
+    let limit = calc_limit(&profile, &goal);
 
     let timer_state = TimerState {
-        period: TimerPeriod::Paused { total: starting_dur, dur_left: starting_dur },
+        period: TimerPeriod::Paused { elapsed: Duration::zero(), limit },
         pomodoro: profile.pomodoro.as_ref().map(|_| PomodoroState {
             total_dur_worked: Duration::zero(),
             current_period: PomodoroPeriod::Work,
@@ -34,7 +30,7 @@ pub async fn create_timer(state: &SState, goal: TimerGoal, profile_name: String)
     *timer = Some(Timer { profile, goal, state: timer_state });
     info!("Timer created");
 
-    drop(timer);
+    drop(timer); // prevent deadlock
     unpause_timer(state).await?;
 
     Ok(ServerToClient::UpdateTimer(state.timer.lock().await.clone()))
@@ -49,10 +45,10 @@ pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
 
     timer.state.period = match timer.state.period {
         TimerPeriod::Paused {..} => bail!("Timer is already paused"),
-        TimerPeriod::Running { total, end } => {
+        TimerPeriod::Running { elapsed, start, limit } => {
             TimerPeriod::Paused {
-                total,
-                dur_left: end.map(|end| end - Utc::now() ),
+                elapsed: elapsed + (Utc::now() - start),
+                limit,
             }
         },
     };
@@ -68,24 +64,25 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
 
     timer.state.period = match timer.state.period {
         TimerPeriod::Running {..} => bail!("Timer is already running!"),
-        TimerPeriod::Paused { total, dur_left } => {
+        TimerPeriod::Paused { elapsed, limit } => {
 
-            let end = dur_left.and_then(|dur_left|  Utc::now().checked_add_signed(dur_left) );
-
-            if let Some(dur_left) = dur_left {
+            if let Some(limit) = limit {
                 // cancel any existing timer tasks
                 state.cancel_timer_tasks.notify_waiters();
+
+                // spawn new task
                 let state = state.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = update_timer_task(state, dur_left).await {
+                    if let Err(e) = update_timer_task(state, (limit - elapsed).max(Duration::zero())).await {
                         error!("Error in timer task: {e}")
                     }
                 });
             }
 
             TimerPeriod::Running {
-                total,
-                end,
+                elapsed,
+                start: Utc::now(),
+                limit,
             }
         },
     };
@@ -135,11 +132,15 @@ pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {
     Ok(ServerToClient::UpdateTimer(None))
 }
 
-fn min_option_dur(a: Option<Duration>, b: Option<Duration>) -> Option<Duration> {
-    match (a, b) {
-        (Some(a), Some(b)) => Some(a.min(b)),
-        (Some(a), None) => Some(a),
-        (None, Some(b)) => Some(b),
-        (None, None) => None,
+fn calc_limit(profile: &Profile, goal: &TimerGoal) -> Option<Duration> {
+    // pomodoro limit
+    let mut limit = profile.pomodoro.as_ref().map(|p| p.work_dur);
+
+    // time goal limit
+    if let TimerGoal::Time (ref dur) = goal {
+        if limit.is_none() || limit.unwrap() > *dur {
+            limit = Some(*dur);
+        }
     }
+    limit
 }

@@ -32,24 +32,8 @@ pub struct TimerState {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TimerPeriod {
-    Running {
-        #[serde_as(as = "Option<DurationSeconds<i64>>")]
-        total: Option<Duration>,
-        end: Option<DateTime<Utc>>,
-    },
-    Paused {
-        #[serde_as(as = "Option<DurationSeconds<i64>>")]
-        total: Option<Duration>,
-        #[serde_as(as = "Option<DurationSeconds<i64>>")]
-        dur_left: Option<Duration>,
-    }
-}
-
-#[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PomodoroState {
-    /// Doesn't include the current period
+    /// total duration of previous work periods
     #[serde_as(as = "DurationSeconds<i64>")]
     pub total_dur_worked: Duration,
     pub current_period: PomodoroPeriod,
@@ -59,3 +43,48 @@ pub struct PomodoroState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PomodoroPeriod { Work, ShortBreak, LongBreak }
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TimerPeriod {
+    Running {
+        // doesn't include the time between start and now
+        #[serde_as(as = "DurationSeconds<i64>")]
+        elapsed: Duration,
+        // time since last pause or start of timer
+        start: DateTime<Utc>,
+        // duration at which the timer stops
+        #[serde_as(as = "Option<DurationSeconds<i64>>")]
+        limit: Option<Duration>,
+    },
+    Paused {
+        #[serde_as(as = "DurationSeconds<i64>")]
+        elapsed: Duration,
+        // duration at which the timer stops
+        #[serde_as(as = "Option<DurationSeconds<i64>>")]
+        limit: Option<Duration>,
+    },
+}
+
+impl TimerPeriod {
+    pub fn is_running(&self) -> bool {
+        match self {
+            TimerPeriod::Running {..} => true,
+            TimerPeriod::Paused {..} => false,
+        }
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        match self {
+            TimerPeriod::Running { elapsed, start, .. } => *elapsed + (Utc::now() - *start),
+            TimerPeriod::Paused { elapsed, .. } => *elapsed,
+        }
+    }
+
+    pub fn limit(&self) -> Option<Duration> {
+        match self {
+            TimerPeriod::Running { limit, .. } => *limit,
+            TimerPeriod::Paused { limit, .. } => *limit,
+        }
+    }
+}

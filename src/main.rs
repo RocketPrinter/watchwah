@@ -1,5 +1,4 @@
-extern crate core;
-
+#![allow(unused_imports)]
 mod app;
 mod daemon;
 pub mod common {
