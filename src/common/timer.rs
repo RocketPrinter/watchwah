@@ -20,6 +20,7 @@ pub enum TimerGoal {
     /// overrides EarlyStopBehaviour::Never
     None,
     Time (#[serde_as(as = "DurationSeconds<i64>")]Duration),
+    // todo: Pomodoro(u32)
     Todos(u32),
 }
 

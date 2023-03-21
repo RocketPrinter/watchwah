@@ -1,8 +1,9 @@
 use chrono::Duration;
-use eframe::egui::{Button, Color32, ProgressBar, Ui, vec2, Widget};
+use eframe::egui::{Button, Color32, ProgressBar, RichText, Ui, vec2, Widget};
+use core::time::Duration as StdDuration;
 use crate::app::egui::centerer::centerer;
 use crate::app::State;
-use crate::common::timer::{PomodoroPeriod, PomodoroState, Timer, TimerPeriod, TimerState};
+use crate::common::timer::{PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState};
 use crate::common::ws_common::ClientToServer;
 
 pub fn ui(ui: &mut Ui, state: &State) {
@@ -14,24 +15,16 @@ pub fn ui(ui: &mut Ui, state: &State) {
         // title
         ui.heading(title);
 
-
-
-
+        time_progress_bar(ui, &timer.state.period);
 
         buttons(ui, state);
     });
-
-
-
-
-    ///progress_bar(ui, timer.state.elapsed, timer.state.total_dur);
 
     ui.label(format!("{:#?}", state.timer.as_ref().unwrap()));
 }
 
 fn color_and_title(timer_state: &TimerState) -> (Color32, &'static str) {
     if let TimerPeriod::Paused {..} = timer_state.period {
-        // paused
         return (Color32::from_rgb(255, 255, 255), "Paused")
     }
     match timer_state.pomodoro.as_ref().map(|p| &p.current_period) {
@@ -41,23 +34,38 @@ fn color_and_title(timer_state: &TimerState) -> (Color32, &'static str) {
     }
 }
 
-fn time_progress_bar(ui: &mut Ui, color: Color32, elapsed: Duration, total: Duration) {
-    let secs = elapsed.num_seconds()%60;
-    let mins = elapsed.num_minutes()%60;
-    let hours = elapsed.num_hours();
+fn time_progress_bar(ui: &mut Ui, period: &TimerPeriod) {
+    let elapsed = period.elapsed();
 
-    let progress = secs as f32 / total.num_seconds() as f32;
-    let text = if hours > 0 {
-        format!("{0}:{1}:{2}",hours,mins,secs)
+    if let Some(limit) = period.limit() {
+        let progress = elapsed.num_milliseconds() as f32 / limit.num_milliseconds() as f32;
+        let diff_text = format_dur(limit - elapsed);
+
+        // if the time limit is low we update every frame to make the bar smoother
+        if limit < Duration::minutes(5) {
+            ui.ctx().request_repaint();
+        } else {
+            ui.ctx().request_repaint_after(StdDuration::from_millis(200));
+        }
+
+        ProgressBar::new(progress).text(diff_text).ui(ui);
     } else {
-        format!("{0}:{1}",mins,secs)
-    };
+        ui.ctx().request_repaint_after(StdDuration::from_millis(200));
 
-    ProgressBar::new(progress).text(text).ui(ui);
-}
+        ui.label(RichText::new(format_dur(elapsed)).size(30.));
+    }
 
-fn goal_progress_bar(ui: &mut Ui, timer: &Timer) {
-    todo!()
+    fn format_dur(dur: Duration) -> String {
+        let secs = dur.num_seconds()%60;
+        let mins = dur.num_minutes()%60;
+        let hours = dur.num_hours();
+
+        if hours > 0 {
+            format!("{0}:{1:0>2}:{2:0>2}",hours,mins,secs)
+        } else {
+            format!("{0:0>2}:{1:0>2}",mins,secs)
+        }
+    }
 }
 
 fn buttons(ui: &mut Ui, state: &State) {

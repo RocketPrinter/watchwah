@@ -50,6 +50,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
             )
             .show_ui(ui, |ui| {
                 for profile in &state.profiles {
+                    // todo: show pomodoro emoji with format!("{profile}\u1F345}")
                     ui.selectable_value(&mut data.selected_profile, Some(profile.clone()), profile);
                 }
             })

@@ -41,7 +41,7 @@ impl EguiApp {
 
 impl eframe::App for EguiApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut state = self.state.lock().unwrap();
+        let state = self.state.lock().unwrap();
 
         egui::TopBottomPanel::top("top")
             .min_height(0.)
@@ -51,14 +51,14 @@ impl eframe::App for EguiApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label(self.owo.to_string());
-            self.owo += 1;
-
             if state.timer.is_some() {
                 timer_widget::ui(ui, &state);
             } else {
                 create_timer_widget::ui(ui, &state);
             }
+
+            ui.label(self.owo.to_string());
+            self.owo += 1;
         });
     }
 }
