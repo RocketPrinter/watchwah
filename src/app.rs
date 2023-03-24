@@ -1,7 +1,6 @@
 mod egui;
 mod client_ws;
-//todo: mod client_config;
-
+mod blocking;
 use std::sync::{Arc, Mutex};
 use eframe::egui::Context;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};

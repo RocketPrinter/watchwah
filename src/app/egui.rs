@@ -1,12 +1,15 @@
+mod centerer;
 mod create_timer_widget;
 mod duration_input_widget;
 mod timer_widget;
-mod centerer;
+mod top_panel;
 
 use crate::app::SState;
 use eframe::egui;
-use eframe::egui::{Button, ComboBox, ScrollArea};
-use tracing::{info, instrument};
+use eframe::egui::{popup_below_widget, Button, ComboBox, Id, ScrollArea, RichText, TextStyle, Response, Layout, Context, CentralPanel};
+use eframe::egui::special_emojis::GITHUB;
+use eframe::emath::Align;
+use tracing::{error, info, instrument};
 
 #[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {
@@ -21,44 +24,29 @@ pub fn run(state: SState) {
 
 struct EguiApp {
     state: SState,
-
-    owo: i32
 }
 
 impl EguiApp {
     pub fn new(cc: &eframe::CreationContext<'_>, state: SState) -> Self {
-        {
-            state.lock().unwrap().egui_context = Some(cc.egui_ctx.clone());
-        }
-        info!("Starting egui");
-        EguiApp {
-            state,
+        state.lock().unwrap().egui_context = Some(cc.egui_ctx.clone());
 
-            owo: 0,
-        }
+        info!("Starting egui");
+        EguiApp { state }
     }
 }
 
 impl eframe::App for EguiApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         let state = self.state.lock().unwrap();
 
-        egui::TopBottomPanel::top("top")
-            .min_height(0.)
-            .show(ctx, |ui| {
-                // todo: logo w context menu, ws_connected
-                ui.label(format!("Connected: {0}", state.ws_connected));
-            });
+        top_panel::ui(ctx, &state);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ctx, |ui| {
             if state.timer.is_some() {
                 timer_widget::ui(ui, &state);
             } else {
                 create_timer_widget::ui(ui, &state);
             }
-
-            ui.label(self.owo.to_string());
-            self.owo += 1;
         });
     }
 }
