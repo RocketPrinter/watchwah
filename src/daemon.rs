@@ -1,14 +1,14 @@
 mod config_logic;
-mod rest;
 mod server_ws;
 mod timer_logic;
 
+use std::net::SocketAddr;
 use crate::common::config::ServerConfig;
 use crate::common::timer::Timer;
 use crate::common::ws_common::ServerToClient;
-use axum::extract::WebSocketUpgrade;
+use axum::extract::{ConnectInfo, WebSocketUpgrade};
 use axum::routing::get;
-use axum::Router;
+use axum::{Router, ServiceExt};
 use std::process;
 use std::sync::Arc;
 use tokio::sync::broadcast::Sender;
@@ -60,15 +60,15 @@ pub fn daemon() {
         // todo: rest
         .route(
             "/ws",
-            get(move |upgrade: WebSocketUpgrade| async {
+            get(move |upgrade: WebSocketUpgrade, ip: ConnectInfo<SocketAddr>| async move {
                 upgrade.on_upgrade(move |ws| {
-                    server_ws::handle_socket(ws, state.clone(), ws_tx.subscribe())
+                    server_ws::handle_socket(ws, ip.0, state.clone(), ws_tx.subscribe())
                 })
             }),
         );
 
     let server =
-        axum::Server::bind(&"127.0.0.1:63086".parse().unwrap()).serve(router.into_make_service());
+        axum::Server::bind(&"127.0.0.1:63086".parse().unwrap()).serve(router.into_make_service_with_connect_info::<SocketAddr>());
 
     tokio::spawn(async {
         if let Err(e) = server.await {

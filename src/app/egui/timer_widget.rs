@@ -1,11 +1,13 @@
 use chrono::Duration;
-use eframe::egui::{Button, Color32, ProgressBar, RichText, Ui, vec2, Widget};
+use eframe::egui::{Button, Color32, ProgressBar, RichText, ScrollArea, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
+use eframe::egui;
 use crate::app::egui::centerer::centerer;
 use crate::app::State;
 use crate::common::timer::{PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState};
 use crate::common::ws_common::ClientToServer;
 
+// todo: incomplete
 pub fn ui(ui: &mut Ui, state: &State) {
     let Some(ref timer) = state.timer else {return};
 
@@ -20,7 +22,9 @@ pub fn ui(ui: &mut Ui, state: &State) {
         buttons(ui, state);
     });
 
-    ui.label(format!("{:#?}", state.timer.as_ref().unwrap()));
+    ScrollArea::new([false,true]).show(ui, |ui| {
+        ui.label(format!("{:#?}", state.timer.as_ref().unwrap()));
+    });
 }
 
 fn color_and_title(timer_state: &TimerState) -> (Color32, &'static str) {

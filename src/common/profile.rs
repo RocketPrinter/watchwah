@@ -14,22 +14,26 @@ pub struct Profile {
     pub early_stop: EarlyStopBehaviour,
 }
 
+// todo: use a better format than DurationSeconds
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PomodoroSettings {
+    #[serde(default = "work_dur_default")]
     #[serde_as(as = "DurationSeconds<i64>")]
     pub work_dur: Duration,
+    #[serde(default = "small_breaks_default")]
     #[serde_as(as = "DurationSeconds<i64>")]
     pub small_break_dur: Duration,
-    #[serde_as(as = "Option<DurationSeconds<i64>>")]
-    pub long_break_dur: Option<Duration>,
+    #[serde(default = "long_breaks_default")]
+    #[serde_as(as = "DurationSeconds<i64>")]
+    pub long_break_dur: Duration,
     #[serde(default = "break_ratio_default")]
-    /// x short breaks to 1 long break
-    pub break_ratio: u32,
+    pub small_breaks_between_big_ones: u32,
 }
-fn break_ratio_default() -> u32 {
-    3
-}
+fn work_dur_default() -> Duration { Duration::minutes(25) }
+fn small_breaks_default() -> Duration { Duration::minutes(5) }
+fn long_breaks_default() -> Duration { Duration::minutes(15) }
+fn break_ratio_default() -> u32 { 4 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Blocking {

@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 use crate::common::ws_common::{ClientToServer, ServerToClient};
 use crate::daemon::{config_logic, SState, timer_logic};
@@ -31,8 +32,8 @@ pub fn serialize_incoming(broadcast_tx: Sender<String>) -> UnboundedSender<Serve
 }
 
 #[instrument(name = "server ws", skip_all)]
-pub async fn handle_socket(mut ws: WebSocket, state: SState, mut rx: Receiver<String>) {
-    info!("Connection established"); // todo: log ip/other info2x
+pub async fn handle_socket(mut ws: WebSocket, ip: SocketAddr, state: SState, mut rx: Receiver<String>) {
+    info!("Connection established. Ip: {ip}");
 
     if let Err(e) = send_welcome_message(&mut ws, &state).await {
         error!("Failed to send welcome message: {e}");
