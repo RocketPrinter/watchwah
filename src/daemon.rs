@@ -1,9 +1,8 @@
-mod config_logic;
+mod server_config;
 mod server_ws;
 mod timer_logic;
 
 use std::net::SocketAddr;
-use crate::common::config::ServerConfig;
 use crate::common::timer::Timer;
 use crate::common::ws_common::ServerToClient;
 use axum::extract::{ConnectInfo, WebSocketUpgrade};
@@ -15,6 +14,7 @@ use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use tracing::{error, instrument};
+use crate::daemon::server_config::ServerConfig;
 
 pub type SState = Arc<State>;
 pub struct State {
@@ -34,7 +34,7 @@ pub fn daemon() {
     let state = Arc::new(State {
         ws_tx: server_ws::serialize_incoming(ws_tx.clone()),
 
-        conf: match config_logic::load() {
+        conf: match server_config::load_config() {
             Ok(conf) => RwLock::new(conf),
             Err(err) => {
                 error!("Unable to load config: {err}");
@@ -46,7 +46,7 @@ pub fn daemon() {
     });
 
     // config monitor
-    let monitor = config_logic::config_monitor(state.clone());
+    let monitor = server_config::config_monitor(state.clone());
     tokio::spawn(async {
         if let Err(e) = monitor.await {
             error!("Monitor service failed: {e}");

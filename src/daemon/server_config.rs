@@ -1,4 +1,4 @@
-use crate::common::config::{get_config_path, ServerConfig};
+use crate::common::config::{get_config_path};
 use crate::common::profile::Profile;
 use crate::common::ws_common::ServerToClient;
 use crate::daemon::{timer_logic, SState};
@@ -9,6 +9,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, instrument};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServerConfig {
+
+    // todo: key
+
+    #[serde(skip)] // generated from neighboring files
+    pub profiles: Vec<Profile>,
+}
 
 #[instrument(name = "config monitor", skip_all)]
 pub async fn config_monitor(state: SState) -> Result<()> {
@@ -24,7 +34,7 @@ pub async fn config_monitor(state: SState) -> Result<()> {
         | EventKind::Modify(_)
         | EventKind::Remove(RemoveKind::File) = res?.kind
         {
-            match tokio::task::spawn_blocking(load).await.unwrap() {
+            match tokio::task::spawn_blocking(load_config).await.unwrap() {
                 Ok(new_conf) => {
                     *state.conf.write().await = new_conf;
                     if let Ok(msg) = timer_logic::stop_timer(&state).await {
@@ -52,7 +62,7 @@ pub async fn profiles_msg(state: &SState) -> ServerToClient {
     )
 }
 
-pub fn load() -> Result<ServerConfig> {
+pub fn load_config() -> Result<ServerConfig> {
     let mut conf: Option<ServerConfig> = None;
 
     let path = get_config_path();

@@ -17,7 +17,7 @@ pub enum ClientToServer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerToClient {
     UpdateProfiles(Vec<String>),
-    UpdateTimer(Option<Timer>),
+    UpdateTimer(Option<Timer>), // todo: <----
     UpdateTimerState(TimerState),
 
     // todo: UpdateTodos
