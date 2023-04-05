@@ -1,20 +1,19 @@
-use anyhow::Result;
+use crate::app::blocking;
+use crate::app::blocking::WindowInfo;
+use crate::app::SState;
+use anyhow::{bail, Result};
 use procfs::process::Process;
 use std::iter::FilterMap;
 use std::path::PathBuf;
-use tracing::error;
+use std::thread;
+use std::time::Duration;
+use chrono::{Timelike, Utc};
+use tokio::task::spawn_blocking;
+use tracing::{error, info, instrument};
 use x11rb::atom_manager;
 use x11rb::connection::Connection;
-use x11rb::protocol::xproto::{get_property, query_tree, AtomEnum, ConnectionExt, Window};
+use x11rb::protocol::xproto::{get_property, query_tree, AtomEnum, ConnectionExt, Window, get_geometry};
 use x11rb::rust_connection::RustConnection;
-
-#[derive(Debug)]
-struct WindowInfo {
-    window: Window,
-    name: String,
-    pid: u32,
-    path: Option<PathBuf>,
-}
 
 atom_manager! {
     Atoms: AtomCollectionCookie {
@@ -30,57 +29,83 @@ atom_manager! {
     }
 }
 
-pub fn proof_of_concept() -> Result<()> {
+#[instrument(name = "x11 blocker", skip_all)]
+pub async fn blocker(state: SState) {
+    info!("Starting");
+
+    spawn_blocking(move || {
+        if let Err(e) = blocker_loop(state) {
+            error!("{e}");
+        }
+    })
+    .await
+    .unwrap();
+
+    info!("Stopping")
+}
+
+fn blocker_loop(state: SState) -> Result<()> {
     let (conn, _) = x11rb::connect(None)?;
     let atoms = Atoms::new(&conn)?.reply()?;
 
+    loop {
+        thread::sleep(Duration::from_millis(100));
 
-    let windows = query_all_windows(&conn)
-        .filter_map(|window| match query_props(&conn, &atoms, window) {
-            Ok(w) => Some(w),
-            Err(e) => {
-                error!("Query props error: {e}");
-                None
-            }
-        })
-        .collect::<Vec<WindowInfo>>();
-    dbg!(&windows);
+        let windows = query_active_windows(&conn, &atoms)?
+            .iter()
+            .map(|w| query_props(&conn, &atoms, *w))
+            .collect::<Result<Vec<WindowInfo>>>()?;
 
-    let windows = query_all_active_windows(&conn, &atoms);
-    dbg!(&windows);
+        // we lock the mutex *after* doing potentially long operations to avoid blocking the ui too much
+        let mut state = state.lock().unwrap();
+        if !blocking::should_block(&state) {
+            break;
+        }
+
+        // for debug menu
+        let utc = Utc::now();
+        for wi in &windows {
+            let name = if !wi.name.is_empty() {wi.name.clone()} else { format!("{:?}",wi) };
+            state.last_detected_windows.insert(name, utc);
+        }
+        state.last_detected_windows.retain(|_, time| (utc - *time).num_seconds() < 5);
+    }
 
     Ok(())
 }
 
-fn query_all_active_windows(conn: &RustConnection, atoms: &Atoms) -> Vec<Result<Window>> {
-    conn.setup().roots.iter().map(|screen| -> Result<Window> {
-        let window = get_property(conn, false, screen.root, atoms._NET_ACTIVE_WINDOW, atoms.WINDOW, 0, 4)?.reply()?.value;
+fn query_active_windows(conn: &RustConnection, atoms: &Atoms) -> Result<Vec<Window>> {
+    let mut vec = vec![];
+    for screen in conn.setup().roots.iter() {
+        let window = get_property(
+            conn,
+            false,
+            screen.root,
+            atoms._NET_ACTIVE_WINDOW,
+            atoms.WINDOW,
+            0,
+            4,
+        )?
+        .reply()?
+        .value;
         let window = u32::from_ne_bytes(window.try_into().unwrap_or_default());
-        Ok(window)
-    }).collect::<Vec<Result<Window>>>()
-}
-
-fn query_all_windows(conn: &RustConnection) -> impl Iterator<Item = Window> + '_ {
-    conn
-        .setup()
-        .roots
-        .iter()
-        // find all windows
-        .map(|screen| -> Result<Vec<Window>> {
-            Ok(query_tree(conn, screen.root)?.reply()?.children)
-        })
-        .filter_map(|r| match r {
-            Ok(w) => Some(w),
-            Err(e) => {
-                error!("Query tree error: {e}");
-                None
-            }
-        })
-        .flatten()
+        if window != 0 {
+            vec.push(window);
+        }
+    }
+    Ok(vec)
 }
 
 fn query_props(conn: &RustConnection, atoms: &Atoms, window: Window) -> Result<WindowInfo> {
-    let name = get_property(conn, false, window, atoms._NET_WM_NAME, atoms.UTF8_STRING, 0, 512,)?
+    let name = get_property(
+        conn,
+        false,
+        window,
+        atoms._NET_WM_NAME,
+        atoms.UTF8_STRING,
+        0,
+        512,
+    )?
     .reply()?
     .value;
 
@@ -95,7 +120,15 @@ fn query_props(conn: &RustConnection, atoms: &Atoms, window: Window) -> Result<W
         name = String::from_utf8(other_name)?;
     }
 
-    let pid = get_property(conn, false, window, atoms._NET_WM_PID, AtomEnum::CARDINAL, 0, 1,)?
+    let pid = get_property(
+        conn,
+        false,
+        window,
+        atoms._NET_WM_PID,
+        AtomEnum::CARDINAL,
+        0,
+        1,
+    )?
     .reply()?
     .value;
 
@@ -106,6 +139,8 @@ fn query_props(conn: &RustConnection, atoms: &Atoms, window: Window) -> Result<W
     } else {
         None
     };
+
+    let reply = get_geometry(conn, window)?.reply()?;
 
     Ok(WindowInfo {
         window,

@@ -79,9 +79,10 @@ fn handle_msg(state: &SState, msg: ServerToClient) {
 
     match msg {
         UpdateProfiles(profiles) => { state.profiles = profiles; },
-        UpdateTimer(timer) => { state.timer = timer; }
+        UpdateTimer(timer) => { state.timer = timer; state.timer_updated.notify_one(); }
         UpdateTimerState(timer_state) => if let Some(ref mut timer) = state.timer {
             timer.state = timer_state;
+            state.timer_updated.notify_one();
         }
 
         RefreshedConfig => todo!(), // show a popup

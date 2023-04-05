@@ -5,9 +5,11 @@ mod client_config;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use chrono::{DateTime, Utc};
 use eframe::egui::Context;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use tokio::sync::Notify;
 use crate::app::client_config::ClientConfig;
 use crate::common::timer::Timer;
 use crate::common::ws_common::ClientToServer;
@@ -19,10 +21,14 @@ pub struct State {
 
     pub profiles: Vec<String>,
     pub timer: Option<Timer>,
+    pub timer_updated: Arc<Notify>,
 
     pub ws_connected: bool,
     pub ws_tx: UnboundedSender<ClientToServer>,
     pub egui_context: Option<Context>,
+
+    // for use in the secret debug menu
+    pub last_detected_windows: HashMap<String, DateTime<Utc>>,
 }
 
 pub fn app() {
@@ -33,15 +39,22 @@ pub fn app() {
 
         profiles: vec![],
         timer: None,
-        
+        timer_updated: Arc::new(Notify::new()),
+
         ws_connected: false,
         ws_tx,
         egui_context: None,
+
+        last_detected_windows: HashMap::new(),
     }));
 
     // websocket
     let sc = state.clone();
     tokio::spawn(async { client_ws::ws_loop(sc, ws_rx).await });
+
+    // blocking
+    let sc = state.clone();
+    tokio::spawn(async{blocking::blocker_loop(sc).await});
 
     // egui
     egui::run(state);

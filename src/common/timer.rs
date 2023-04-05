@@ -1,7 +1,7 @@
-use chrono::{Duration, DateTime, Utc};
+use crate::common::profile::Profile;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
-use crate::common::profile::Profile;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Timer {
@@ -13,13 +13,12 @@ pub struct Timer {
     pub state: TimerState,
 }
 
-
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TimerGoal {
     /// overrides EarlyStopBehaviour::Never
     None,
-    Time (#[serde_as(as = "DurationSeconds<i64>")]Duration),
+    Time(#[serde_as(as = "DurationSeconds<i64>")] Duration),
     // todo: Pomodoro(u32)
     Todos(u32),
 }
@@ -29,6 +28,16 @@ pub enum TimerGoal {
 pub struct TimerState {
     pub period: TimerPeriod,
     pub pomodoro: Option<PomodoroState>,
+}
+
+impl TimerState {
+    pub fn should_block(&self) -> bool {
+        self.period.is_running()
+            && self
+                .pomodoro.as_ref()
+                .map(|p| p.current_period == PomodoroPeriod::Work)
+                .unwrap_or(true)
+    }
 }
 
 #[serde_as]
@@ -42,8 +51,12 @@ pub struct PomodoroState {
     pub small_breaks: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PomodoroPeriod { Work, ShortBreak, LongBreak }
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PomodoroPeriod {
+    Work,
+    ShortBreak,
+    LongBreak,
+}
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -70,8 +83,8 @@ pub enum TimerPeriod {
 impl TimerPeriod {
     pub fn is_running(&self) -> bool {
         match self {
-            TimerPeriod::Running {..} => true,
-            TimerPeriod::Paused {..} => false,
+            TimerPeriod::Running { .. } => true,
+            TimerPeriod::Paused { .. } => false,
         }
     }
 

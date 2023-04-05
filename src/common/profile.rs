@@ -10,7 +10,7 @@ pub struct Profile {
     pub pomodoro: Option<PomodoroSettings>,
     #[serde(default)]
     pub blocking: Blocking,
-    #[serde(default)]
+   #[serde(default)]
     pub early_stop: EarlyStopBehaviour,
 }
 
