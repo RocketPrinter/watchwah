@@ -37,9 +37,10 @@ fn break_ratio_default() -> u32 { 4 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Blocking {
-    // it's a regex!
+    // regex
     #[serde(default)]
-    pub process_name: Vec<String>,
+    pub window_names: Vec<String>,
+    // path pattern
     #[serde(default)]
     pub process_path: Vec<String>,
     #[serde(default)]

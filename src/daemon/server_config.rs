@@ -8,7 +8,7 @@ use notify::{EventKind, RecursiveMode, Watcher};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::unbounded_channel;
-use tracing::{error, instrument};
+use tracing::{error, info, instrument};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub async fn config_monitor(state: SState) -> Result<()> {
         tx.send(res).ok();
     })?;
 
-    watcher.watch(&get_config_path(), RecursiveMode::NonRecursive)?;
+    watcher.watch(&get_config_path(), RecursiveMode::Recursive)?;
 
     while let Some(res) = rx.recv().await {
         if let EventKind::Create(CreateKind::File)
@@ -36,6 +36,7 @@ pub async fn config_monitor(state: SState) -> Result<()> {
         {
             match tokio::task::spawn_blocking(load_config).await.unwrap() {
                 Ok(new_conf) => {
+                    info!("Config updated!");
                     *state.conf.write().await = new_conf;
                     if let Ok(msg) = timer_logic::stop_timer(&state).await {
                         state.ws_tx.send(msg).ok();

@@ -1,7 +1,7 @@
 use chrono::{Timelike, Utc};
 use crate::app::egui::EguiApp;
 use crate::app::State;
-use eframe::egui::{Align, CollapsingHeader, Context, Layout, popup_below_widget, Response, RichText, TextStyle, TopBottomPanel, Ui};
+use eframe::egui::{Align, CollapsingHeader, Color32, Context, Layout, popup_below_widget, Response, RichText, TextStyle, TopBottomPanel, Ui};
 use eframe::egui::special_emojis::GITHUB;
 use tracing::error;
 use tracing::instrument::WithSubscriber;
@@ -42,10 +42,13 @@ fn popup(ui: &mut Ui, logo_response: &Response, state: &State) {
         ui.label(format!("Connected: {0}", state.ws_connected));
         ui.label(format!("Updates: {0}", updates));
 
-        ui.collapsing("Detected windows", |ui| {
+        CollapsingHeader::new("Detected windows").default_open(true).enabled(true).show(ui, |ui| {
             let utc = Utc::now();
-            for (name, time) in state.last_detected_windows.iter() {
-                ui.label(format!("  {}s ago: {}", (utc - *time).num_seconds(), name));
+            for (name, (time, blocked, extra)) in state.detected_windows.iter() {
+                ui.label(RichText::new(format!("  {}s ago: {name}", (utc - *time).num_seconds())).color(if *blocked {Color32::RED} else {Color32::LIGHT_GRAY}));
+                for str in extra.iter().flat_map(|v|v.iter()) {
+                    ui.label(str);
+                }
             }
         });
     });

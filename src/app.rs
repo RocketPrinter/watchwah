@@ -28,7 +28,8 @@ pub struct State {
     pub egui_context: Option<Context>,
 
     // for use in the secret debug menu
-    pub last_detected_windows: HashMap<String, DateTime<Utc>>,
+    //                              \/ title               \/ blocked    \/ extra info
+    pub detected_windows: HashMap<String, (DateTime<Utc>, bool, Option<Vec<String>>)>,
 }
 
 pub fn app() {
@@ -45,7 +46,7 @@ pub fn app() {
         ws_tx,
         egui_context: None,
 
-        last_detected_windows: HashMap::new(),
+        detected_windows: HashMap::new(),
     }));
 
     // websocket
