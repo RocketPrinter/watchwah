@@ -37,9 +37,9 @@ pub async fn config_monitor(state: SState) -> Result<()> {
             match tokio::task::spawn_blocking(load_config).await.unwrap() {
                 Ok(new_conf) => {
                     info!("Config updated!");
-                    *state.conf.write().await = new_conf;
+                    {*state.conf.write().await = new_conf;}
                     if let Ok(msg) = timer_logic::stop_timer(&state).await {
-                        state.ws_tx.send(msg).ok();
+                        state.ws_tx.send(msg.chain(profiles_msg(&state).await)).ok();
                     }
                 }
                 Err(e) => error!("Failed to parse config: {e}"),
