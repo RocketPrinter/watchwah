@@ -60,3 +60,13 @@ pub fn app() {
     // egui
     egui::run(state);
 }
+
+//todo: sooound
+//todo: toast popup
+//todo: finish the ui
+//todo: finish x11 blocking
+    // clean up code
+    // sounds
+    // actual blocking??
+    // switch away from notifications?
+//todo: wayland + windows blocking

@@ -53,8 +53,6 @@ pub fn daemon() {
         }
     });
 
-    // timer service
-
     // axum
     let router = Router::new()
         // todo: rest
