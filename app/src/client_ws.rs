@@ -5,8 +5,8 @@ use tokio::time::sleep;
 use tracing::{error, info, instrument};
 use websockets::{Frame, WebSocket, WebSocketError};
 use anyhow::Result;
-use crate::app::SState;
-use crate::common::ws_common::{ClientToServer, ServerToClient};
+use crate::SState;
+use common::ws_common::{ClientToServer, ServerToClient};
 use ServerToClient::*;
 
 const URL: &str = "ws://127.0.0.1:63086/ws";

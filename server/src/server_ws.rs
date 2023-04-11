@@ -1,7 +1,6 @@
 use std::net::SocketAddr;
-use std::sync::Arc;
-use crate::common::ws_common::{ClientToServer, ServerToClient};
-use crate::daemon::{server_config, SState, timer_logic};
+use common::ws_common::{ClientToServer, ServerToClient};
+use crate::{server_config, SState, timer_logic};
 use anyhow::{bail, Result};
 use axum::extract::ws::{Message, WebSocket};
 use tokio::select;
@@ -69,7 +68,7 @@ pub async fn handle_socket(mut ws: WebSocket, ip: SocketAddr, state: SState, mut
 async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> {
     let msg = ServerToClient::Multiple(vec![
         server_config::profiles_msg(state).await,
-        ServerToClient::UpdateTimer(state.timer.lock().await.clone()),
+        ServerToClient::UpdateTimer(state.timer.lock().await.clone().map(Box::new)),
     ]);
 
     ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;

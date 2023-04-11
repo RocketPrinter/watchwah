@@ -4,12 +4,9 @@ mod duration_input_widget;
 mod timer_widget;
 mod top_panel;
 
-use crate::app::SState;
-use eframe::egui;
-use eframe::egui::{popup_below_widget, Button, ComboBox, Id, ScrollArea, RichText, TextStyle, Response, Layout, Context, CentralPanel};
-use eframe::egui::special_emojis::GITHUB;
-use eframe::emath::Align;
-use tracing::{error, info, instrument};
+use crate::SState;
+use eframe::egui::{Context, CentralPanel};
+use tracing::{info, instrument};
 
 #[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {

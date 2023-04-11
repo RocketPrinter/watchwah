@@ -1,14 +1,4 @@
-#![allow(unused_imports)]
-mod app;
-mod daemon;
-pub mod common {
-    pub mod config;
-    pub mod profile;
-    pub mod timer;
-    pub mod ws_common;
-}
-
-use crate::app::app;
+/*use crate::app::app;
 use crate::daemon::daemon;
 use axum::handler::Handler;
 use clap::{Parser, Subcommand};
@@ -106,4 +96,6 @@ fn init() -> Runtime {
 
     // tokio runtime
     Runtime::new().unwrap()
-}
+}*/
+
+fn main() {}

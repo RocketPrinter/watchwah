@@ -1,18 +1,18 @@
 mod egui;
 mod client_ws;
-mod blocking;
+mod detection;
 mod client_config;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use chrono::{DateTime, Utc};
 use eframe::egui::Context;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio::sync::Notify;
-use crate::app::client_config::ClientConfig;
-use crate::common::timer::Timer;
-use crate::common::ws_common::ClientToServer;
+use common::register_tracing;
+use crate::client_config::ClientConfig;
+use common::timer::Timer;
+use common::ws_common::ClientToServer;
 
 pub type SState = Arc<Mutex<State>>;
 #[derive(Debug)]
@@ -20,7 +20,7 @@ pub struct State {
     pub config: ClientConfig,
 
     pub profiles: Vec<String>,
-    pub timer: Option<Timer>,
+    pub timer: Option<Box<Timer>>,
     pub timer_updated: Arc<Notify>,
 
     pub ws_connected: bool,
@@ -32,7 +32,10 @@ pub struct State {
     pub detected_windows: HashMap<String, (DateTime<Utc>, bool, Option<Vec<String>>)>,
 }
 
-pub fn app() {
+#[tokio::main]
+pub async fn main() {
+    register_tracing("127.0.0.1:6670");
+
     // state
     let (ws_tx,ws_rx) = unbounded_channel::<ClientToServer>();
     let state = Arc::new(Mutex::new(State{
@@ -53,9 +56,9 @@ pub fn app() {
     let sc = state.clone();
     tokio::spawn(async { client_ws::ws_loop(sc, ws_rx).await });
 
-    // blocking
+    // detection
     let sc = state.clone();
-    tokio::spawn(async{blocking::blocker_loop(sc).await});
+    tokio::spawn(async{detection::blocker_loop(sc).await});
 
     // egui
     egui::run(state);
@@ -64,9 +67,9 @@ pub fn app() {
 //todo: sooound
 //todo: toast popup
 //todo: finish the ui
-//todo: finish x11 blocking
-    // clean up code
-    // sounds
-    // actual blocking??
-    // switch away from notifications?
-//todo: wayland + windows blocking
+//todo: finish x11 detection
+// clean up code
+// sounds
+// actual detection??
+// switch away from notifications?
+//todo: wayland + windows detection

@@ -1,12 +1,12 @@
-use crate::common::config::{get_config_path};
-use crate::common::profile::Profile;
-use crate::common::ws_common::ServerToClient;
-use crate::daemon::{timer_logic, SState};
-use anyhow::{anyhow, bail, Result};
+use common::config::{get_config_path};
+use common::profile::Profile;
+use common::ws_common::ServerToClient;
+use crate::{timer_logic, SState};
+use anyhow::{bail, Result};
 use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info, instrument};
 use serde::{Deserialize, Serialize};
@@ -64,19 +64,16 @@ pub async fn profiles_msg(state: &SState) -> ServerToClient {
 }
 
 pub fn load_config() -> Result<ServerConfig> {
-    let mut conf: Option<ServerConfig> = None;
-
     let path = get_config_path();
     let config_path = path.join("config.toml");
 
-    if config_path.exists() {
+    let mut conf: ServerConfig = if config_path.exists() {
         let contents = fs::read_to_string(config_path)?;
-        conf = Some(toml::from_str(&contents)?);
+        toml::from_str(&contents)?
     } else {
         bail!("config.toml missing!");
-    }
+    };
 
-    let mut conf = conf.ok_or(anyhow!("config.toml missing!"))?;
     conf.profiles = load_profiles(path.join("profiles"))?;
     Ok(conf)
 }

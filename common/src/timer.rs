@@ -1,4 +1,4 @@
-use crate::common::profile::Profile;
+use crate::profile::Profile;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};

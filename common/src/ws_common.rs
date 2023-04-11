@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::common::timer::{TimerGoal, Timer, TimerState};
+use crate::timer::{TimerGoal, Timer, TimerState};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientToServer {
@@ -28,6 +28,7 @@ pub enum ServerToClient {
 }
 
 impl ClientToServer {
+    //noinspection DuplicatedCode
     pub fn chain(self, msg: Self) -> Self {
         if let Self::Multiple(mut msgs) = self {
             msgs.push(msg);
@@ -39,6 +40,7 @@ impl ClientToServer {
 }
 
 impl ServerToClient {
+    //noinspection DuplicatedCode
     pub fn chain(self, msg: Self) -> Self {
         if let Self::Multiple(mut msgs) = self {
             msgs.push(msg);

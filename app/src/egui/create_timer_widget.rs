@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use crate::app::egui::duration_input_widget;
-use crate::app::State;
-use crate::common::timer::TimerGoal;
-use crate::common::ws_common::ClientToServer;
+use crate::egui::duration_input_widget;
+use crate::State;
+use common::timer::TimerGoal;
+use common::ws_common::ClientToServer;
 use chrono::Duration;
 use eframe::egui::{Button, ComboBox, Ui};
 use eframe::egui::mutex::Mutex;

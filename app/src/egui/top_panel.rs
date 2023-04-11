@@ -1,10 +1,7 @@
-use chrono::{Timelike, Utc};
-use crate::app::egui::EguiApp;
-use crate::app::State;
+use chrono::{Utc};
+use crate::State;
 use eframe::egui::{Align, CollapsingHeader, Color32, Context, Layout, popup_below_widget, Response, RichText, TextStyle, TopBottomPanel, Ui};
 use eframe::egui::special_emojis::GITHUB;
-use tracing::error;
-use tracing::instrument::WithSubscriber;
 
 pub fn ui(ctx: &Context, state: &State) {
     TopBottomPanel::top("top")

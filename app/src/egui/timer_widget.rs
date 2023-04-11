@@ -1,17 +1,16 @@
 use chrono::Duration;
 use eframe::egui::{Button, Color32, ProgressBar, RichText, ScrollArea, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
-use eframe::egui;
-use crate::app::egui::centerer::centerer;
-use crate::app::State;
-use crate::common::timer::{PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState};
-use crate::common::ws_common::ClientToServer;
+use crate::egui::centerer::centerer;
+use crate::State;
+use common::timer::{PomodoroPeriod, TimerPeriod, TimerState};
+use common::ws_common::ClientToServer;
 
 // todo: incomplete
 pub fn ui(ui: &mut Ui, state: &State) {
     let Some(ref timer) = state.timer else {return};
 
-    let (color,title) = color_and_title(&timer.state);
+    let (_color,title) = color_and_title(&timer.state);
 
     ui.vertical_centered(|ui| {
         // title

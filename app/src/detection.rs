@@ -1,10 +1,4 @@
-use std::path::PathBuf;
-use crate::app::{SState, State};
-use chrono::Duration;
-use std::thread;
-use tokio::task::spawn_blocking;
-use x11rb::protocol::xproto::Window;
-use anyhow::Result;
+use crate::{SState, State};
 use pathpatterns::{MatchEntry, MatchList, MatchType, Pattern};
 
 mod x11;
@@ -19,7 +13,7 @@ pub async fn blocker_loop(state: SState) {
         // we can check if we should start the blocker
         if !should_enable_blocker(&state.lock().unwrap()) {continue;}
 
-        // start blocking
+        // start detection
         if cfg!(target_os = "linux") {
             let state = state.clone();
             x11::blocker(state).await;

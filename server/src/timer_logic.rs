@@ -1,9 +1,8 @@
-use crate::common::profile::Profile;
-use crate::common::timer::{
+use common::timer::{
     PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState,
 };
-use crate::common::ws_common::ServerToClient;
-use crate::daemon::{SState, State};
+use common::ws_common::ServerToClient;
+use crate::{SState};
 use anyhow::{anyhow, bail, Result};
 use chrono::{Duration, Utc};
 use tokio::select;
@@ -67,8 +66,8 @@ pub async fn create_timer(
     info!("Timer started");
 
     Ok(ServerToClient::UpdateTimer(
-        timer.clone(),
-    ))
+        timer.clone().map(Box::new)),
+    )
 }
 
 pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {

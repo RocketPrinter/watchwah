@@ -1,29 +1,24 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use crate::app::blocking;
-use crate::app::SState;
-use anyhow::{bail, Result};
+use crate::{SState};
+use anyhow::{Result};
 use procfs::process::Process;
-use std::iter::FilterMap;
-use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
-use chrono::{DateTime, Timelike, Utc};
-use eframe::epaint::ahash::HashSet;
-use notify_rust::{Notification, NotificationHandle, Timeout, Urgency};
+use chrono::{DateTime, Utc};
+use notify_rust::{Notification, NotificationHandle, Urgency};
 use tokio::task::spawn_blocking;
 use tracing::{error, info, instrument};
 use x11rb::atom_manager;
 use x11rb::connection::Connection;
-use x11rb::protocol::xproto::{get_property, query_tree, AtomEnum, ConnectionExt, Window, get_geometry, Screen, translate_coordinates, GetGeometryReply, TranslateCoordinatesReply};
+use x11rb::protocol::xproto::{get_property, AtomEnum, Window, get_geometry, translate_coordinates, GetGeometryReply, TranslateCoordinatesReply};
 use x11rb::rust_connection::RustConnection;
-use crate::app::blocking::should_block_windows;
+use crate::detection::{should_block_windows, should_enable_blocker};
 
 #[derive(Debug)]
 struct WindowInfo {
     window: Window,
     name: String,
-    pid: u32,
     path: Option<String>,
     pos: WindowPosition,
 
@@ -90,9 +85,9 @@ fn blocker_loop(state: SState, sent_notifications: &mut NotificationMap) -> Resu
             .map(|(window, root)| query_props(&conn, &atoms, window, root))
             .collect::<Result<Vec<WindowInfo>>>()?;
 
-        // we lock the mutex *after* doing potentially long operations to avoid blocking the ui too much
+        // we lock the mutex *after* doing potentially long operations to avoid detection the ui too much
         let mut state = state.lock().unwrap();
-        if !blocking::should_enable_blocker(&state) {
+        if !should_enable_blocker(&state) {
             break;
         }
 
@@ -222,7 +217,6 @@ fn query_props(conn: &RustConnection, atoms: &Atoms, window: Window, root: Windo
     Ok(WindowInfo {
         window,
         name,
-        pid,
         path,
         pos: WindowPosition {
             x,y,width,height
