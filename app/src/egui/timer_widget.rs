@@ -1,5 +1,5 @@
 use chrono::Duration;
-use eframe::egui::{Button, Color32, ProgressBar, RichText, ScrollArea, Ui, vec2, Widget};
+use eframe::egui::{Button, Color32, ProgressBar, RichText, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
 use crate::egui::centerer::centerer;
 use crate::State;
@@ -19,10 +19,6 @@ pub fn ui(ui: &mut Ui, state: &State) {
         time_progress_bar(ui, &timer.state.period);
 
         buttons(ui, state, timer);
-    });
-
-    ScrollArea::new([false,true]).show(ui, |ui| {
-        ui.label(format!("{:#?}", state.timer.as_ref().unwrap()));
     });
 }
 
@@ -87,7 +83,7 @@ fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
             state.ws_tx.send(ClientToServer::StopTimer).unwrap();
         }
 
-        // skipping only makes sesne if pomodoro is enabled
+        // skipping only makes sense if pomodoro is enabled
         if timer.state.pomodoro.is_some() {
             let enabled = timer.profile.can_skip_work || !timer.state.is_work_period();
             if ui.add_enabled(enabled, Button::new("Skip").min_size(vec2(70.,1.))).clicked() {

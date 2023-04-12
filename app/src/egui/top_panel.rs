@@ -1,6 +1,6 @@
 use chrono::{Utc};
 use crate::State;
-use eframe::egui::{Align, CollapsingHeader, Color32, Context, Layout, popup_below_widget, Response, RichText, TextStyle, TopBottomPanel, Ui};
+use eframe::egui::{Align, CollapsingHeader, Color32, Context, Layout, popup_below_widget, Response, RichText, ScrollArea, TextStyle, TopBottomPanel, Ui};
 use eframe::egui::special_emojis::GITHUB;
 
 pub fn ui(ctx: &Context, state: &State) {
@@ -39,13 +39,24 @@ fn popup(ui: &mut Ui, logo_response: &Response, state: &State) {
         ui.label(format!("Connected: {0}", state.ws_connected));
         ui.label(format!("Updates: {0}", updates));
 
-        CollapsingHeader::new("Detected windows").default_open(true).enabled(true).show(ui, |ui| {
+        CollapsingHeader::new("Detected windows").default_open(true).show(ui, |ui| {
             let utc = Utc::now();
             for (name, (time, blocked, extra)) in state.detected_windows.iter() {
                 ui.label(RichText::new(format!("  {}s ago: {name}", (utc - *time).num_seconds())).color(if *blocked {Color32::RED} else {Color32::LIGHT_GRAY}));
                 for str in extra.iter().flat_map(|v|v.iter()) {
                     ui.label(str);
                 }
+            }
+        });
+
+        CollapsingHeader::new("Timer dbg!").default_open(true).show(ui, |ui| {
+            match state.timer.as_ref() {
+                None => {ui.label("None");},
+                Some(timer) => {
+                    ScrollArea::new([false,true]).max_height(250.).show(ui, |ui| {
+                        ui.label(format!("{:#?}", timer));
+                    });
+                },
             }
         });
     });
