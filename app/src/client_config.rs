@@ -1,7 +1,7 @@
 use std::fs;
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
-use common::config::get_config_path;
+use common::get_config_path;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ClientConfig {

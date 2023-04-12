@@ -1,15 +1,15 @@
-use common::config::{get_config_path};
 use common::profile::Profile;
 use common::ws_common::ServerToClient;
-use crate::{timer_logic, SState};
+use crate::{SState, timer_logic};
 use anyhow::{bail, Result};
 use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
 use std::fs;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info, instrument};
 use serde::{Deserialize, Serialize};
+use common::get_config_path;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerConfig {

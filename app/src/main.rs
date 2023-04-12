@@ -66,6 +66,8 @@ pub async fn main() {
 
 //todo: sooound
 //todo: toast popup
+//todo: notifications when a period is over/starting
+//todo: skip period button?
 //todo: finish the ui
 //todo: finish x11 detection
 // clean up code
