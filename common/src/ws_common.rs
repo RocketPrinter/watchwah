@@ -8,9 +8,10 @@ pub enum ClientToServer {
     PauseTimer,
     UnpauseTimer,
     StopTimer,
+    SkipPeriod,
 
     // todo: SetTodos,
-    
+
     Multiple(Vec<ClientToServer>),
 }
 

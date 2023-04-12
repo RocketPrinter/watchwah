@@ -75,7 +75,7 @@ pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
         bail!("Timer is not created")
     };
 
-    state.cancel_timer_tasks.notify_waiters();
+    state.cancel_timer.notify_waiters();
 
     timer.state.period = match timer.state.period {
         TimerPeriod::Paused { .. } => bail!("Timer is already paused"),
@@ -123,7 +123,7 @@ pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {
     if timer.is_none() {
         bail!("Timer isn't created!")
     }
-    state.cancel_timer_tasks.notify_waiters();
+    state.cancel_timer.notify_waiters();
     *timer = None;
 
     info!("Timer stopped");
@@ -134,7 +134,7 @@ fn spawn_task(state: SState, awake_in: Duration) {
     if awake_in <= Duration::zero() { return; }
 
     // cancel any existing timer tasks
-    state.cancel_timer_tasks.notify_waiters();
+    state.cancel_timer.notify_waiters();
 
     // spawn task
     tokio::spawn(async move {
@@ -147,9 +147,12 @@ fn spawn_task(state: SState, awake_in: Duration) {
 
 async fn timer_task(state: SState, awake_in: Duration) -> Result<()> {
     info!("Waiting {awake_in:?}");
-    // we await the period or cancel if notified
+
     select! {
-        _ = state.cancel_timer_tasks.notified() => {return Ok(())}
+        _ = state.cancel_timer.notified() => {return Ok(())}
+
+        // we either skip or await until it's over
+        _ = state.skip_period.notified() => { info!("Skipping...") }
         _ = tokio::time::sleep(awake_in.to_std()?) => { }
     }
 
@@ -170,7 +173,7 @@ async fn timer_task(state: SState, awake_in: Duration) -> Result<()> {
                     // we did some work, break comes next
                     // but first we add the duration worked to the total
                     pomodoro.total_dur_worked =
-                        pomodoro.total_dur_worked + timer.state.period.elapsed();
+                        pomodoro.total_dur_worked + timer.state.period.limit().unwrap_or_else(|| timer.state.period.elapsed());
 
                     // check if we finished
                     if let TimerGoal::Time(limit) = &timer.goal {

@@ -10,8 +10,8 @@ pub struct Profile {
     pub pomodoro: Option<PomodoroSettings>,
     #[serde(default)]
     pub blocking: Blocking,
-   #[serde(default)]
-    pub early_stop: EarlyStopBehaviour,
+    #[serde(default)]
+    pub can_skip_work: bool,
 }
 
 // todo: use a better format than DurationSeconds

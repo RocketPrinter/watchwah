@@ -94,6 +94,7 @@ async fn handle_receive(state: &SState, msg: String) -> Result<()> {
             PauseTimer => timer_logic::pause_timer(state).await?,
             UnpauseTimer => timer_logic::unpause_timer(state).await?,
             StopTimer => timer_logic::stop_timer(state).await?,
+            SkipPeriod => {state.skip_period.notify_waiters(); return Ok(());},
 
             Multiple(_) => bail!("Recursive messages not supported"),
         };

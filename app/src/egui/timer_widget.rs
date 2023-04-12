@@ -3,7 +3,7 @@ use eframe::egui::{Button, Color32, ProgressBar, RichText, ScrollArea, Ui, vec2,
 use core::time::Duration as StdDuration;
 use crate::egui::centerer::centerer;
 use crate::State;
-use common::timer::{PomodoroPeriod, TimerPeriod, TimerState};
+use common::timer::{PomodoroPeriod, Timer, TimerPeriod, TimerState};
 use common::ws_common::ClientToServer;
 
 // todo: incomplete
@@ -18,7 +18,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
 
         time_progress_bar(ui, &timer.state.period);
 
-        buttons(ui, state);
+        buttons(ui, state, timer);
     });
 
     ScrollArea::new([false,true]).show(ui, |ui| {
@@ -71,9 +71,9 @@ fn time_progress_bar(ui: &mut Ui, period: &TimerPeriod) {
     }
 }
 
-fn buttons(ui: &mut Ui, state: &State) {
+fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
     centerer(ui, |ui| {
-        if let TimerPeriod::Running {..} = state.timer.as_ref().unwrap().state.period {
+        if let TimerPeriod::Running {..} = timer.state.period {
             // todo: early stop behaviour
 
             if ui.add_enabled(true,Button::new("Pause").min_size(vec2(70.,1.))).clicked() {
@@ -85,6 +85,14 @@ fn buttons(ui: &mut Ui, state: &State) {
 
         if ui.add(Button::new("Stop").min_size(vec2(70.,1.))).clicked() {
             state.ws_tx.send(ClientToServer::StopTimer).unwrap();
+        }
+
+        // skipping only makes sesne if pomodoro is enabled
+        if timer.state.pomodoro.is_some() {
+            let enabled = timer.profile.can_skip_work || !timer.state.is_work_period();
+            if ui.add_enabled(enabled, Button::new("Skip").min_size(vec2(70.,1.))).clicked() {
+                state.ws_tx.send(ClientToServer::SkipPeriod).unwrap();
+            }
         }
     });
 }

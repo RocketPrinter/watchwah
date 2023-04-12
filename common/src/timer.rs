@@ -38,6 +38,13 @@ impl TimerState {
                 .map(|p| p.current_period == PomodoroPeriod::Work)
                 .unwrap_or(true)
     }
+
+    pub fn is_work_period(&self) -> bool {
+        self
+            .pomodoro.as_ref()
+            .map(|p| p.current_period == PomodoroPeriod::Work)
+            .unwrap_or(true)
+    }
 }
 
 #[serde_as]

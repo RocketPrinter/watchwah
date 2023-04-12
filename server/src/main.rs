@@ -2,19 +2,19 @@ mod server_config;
 mod server_ws;
 mod timer_logic;
 
-use std::net::SocketAddr;
-use common::timer::Timer;
-use common::ws_common::ServerToClient;
+use crate::server_config::ServerConfig;
 use axum::extract::{ConnectInfo, WebSocketUpgrade};
 use axum::routing::get;
 use axum::Router;
+use common::register_tracing;
+use common::timer::Timer;
+use common::ws_common::ServerToClient;
+use std::net::SocketAddr;
 use std::process;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
-use tracing::{error};
-use common::register_tracing;
-use crate::server_config::ServerConfig;
+use tracing::error;
 
 pub type SState = Arc<State>;
 pub struct State {
@@ -23,7 +23,8 @@ pub struct State {
     pub conf: RwLock<ServerConfig>,
 
     pub timer: Mutex<Option<Timer>>,
-    pub cancel_timer_tasks: Arc<Notify>,
+    pub cancel_timer: Arc<Notify>,
+    pub skip_period: Arc<Notify>,
 }
 
 // todo: tracing
@@ -46,7 +47,8 @@ pub async fn main() {
             }
         },
         timer: Mutex::new(None),
-        cancel_timer_tasks: Arc::new(Notify::new()),
+        cancel_timer: Arc::new(Notify::new()),
+        skip_period: Arc::new(Notify::new()),
     });
 
     // config monitor
@@ -62,15 +64,17 @@ pub async fn main() {
         // todo: rest
         .route(
             "/ws",
-            get(move |upgrade: WebSocketUpgrade, ip: ConnectInfo<SocketAddr>| async move {
-                upgrade.on_upgrade(move |ws| {
-                    server_ws::handle_socket(ws, ip.0, state.clone(), ws_tx.subscribe())
-                })
-            }),
+            get(
+                move |upgrade: WebSocketUpgrade, ip: ConnectInfo<SocketAddr>| async move {
+                    upgrade.on_upgrade(move |ws| {
+                        server_ws::handle_socket(ws, ip.0, state.clone(), ws_tx.subscribe())
+                    })
+                },
+            ),
         );
 
-    let server =
-        axum::Server::bind(&"127.0.0.1:63086".parse().unwrap()).serve(router.into_make_service_with_connect_info::<SocketAddr>());
+    let server = axum::Server::bind(&"127.0.0.1:63086".parse().unwrap())
+        .serve(router.into_make_service_with_connect_info::<SocketAddr>());
 
     if let Err(e) = server.await {
         error!("[Server] Axum failed with {e}")
