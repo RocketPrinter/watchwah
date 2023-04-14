@@ -1,7 +1,8 @@
 use chrono::{Utc};
 use crate::State;
-use eframe::egui::{Align, CollapsingHeader, Color32, Context, Layout, popup_below_widget, Response, RichText, ScrollArea, TextStyle, TopBottomPanel, Ui};
+use eframe::egui::{Align, CollapsingHeader, Color32, Context, Label, Layout, popup_below_widget, Response, RichText, ScrollArea, Sense, TextStyle, TopBottomPanel, Ui};
 use eframe::egui::special_emojis::GITHUB;
+use crate::audio_manager::SoundEffects;
 
 pub fn ui(ctx: &Context, state: &State) {
     TopBottomPanel::top("top")
@@ -35,7 +36,9 @@ fn popup(ui: &mut Ui, logo_response: &Response, state: &State) {
     let popup_width = ui.available_width();
     popup_below_widget(ui, popup_id, logo_response, |ui| {
         ui.set_max_width(popup_width);
-        ui.label("Welcome to the secret menu!").on_hover_text("OwO");
+        if ui.add(Label::new("Welcome to the secret menu!").sense(Sense::click())).clicked() {
+            state.audio_manager.play_logged(SoundEffects::Secret);
+        }
         ui.label(format!("Connected: {0}", state.ws_connected));
         ui.label(format!("Updates: {0}", updates));
 

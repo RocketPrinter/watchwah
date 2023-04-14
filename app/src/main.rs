@@ -2,6 +2,7 @@ mod egui;
 mod client_ws;
 mod detection;
 mod client_config;
+mod audio_manager;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -13,9 +14,10 @@ use common::register_tracing;
 use crate::client_config::ClientConfig;
 use common::timer::Timer;
 use common::ws_common::ClientToServer;
+use anyhow::Result;
+use crate::audio_manager::AudioManager;
 
 pub type SState = Arc<Mutex<State>>;
-#[derive(Debug)]
 pub struct State {
     pub config: ClientConfig,
 
@@ -26,6 +28,7 @@ pub struct State {
     pub ws_connected: bool,
     pub ws_tx: UnboundedSender<ClientToServer>,
     pub egui_context: Option<Context>,
+    pub audio_manager: AudioManager,
 
     // for use in the secret debug menu
     //                              \/ title               \/ blocked    \/ extra info
@@ -33,7 +36,7 @@ pub struct State {
 }
 
 #[tokio::main]
-pub async fn main() {
+pub async fn main() -> Result<()> {
     register_tracing("127.0.0.1:6670");
 
     // state
@@ -48,6 +51,7 @@ pub async fn main() {
         ws_connected: false,
         ws_tx,
         egui_context: None,
+        audio_manager: AudioManager::new()?,
 
         detected_windows: HashMap::new(),
     }));
@@ -62,6 +66,8 @@ pub async fn main() {
 
     // egui
     egui::run(state);
+
+    Ok(())
 }
 
 //todo: sooound
@@ -71,7 +77,8 @@ pub async fn main() {
 //todo: finish the ui
 //todo: finish x11 detection
 // clean up code
-// sounds
+// sfx
 // actual detection??
 // switch away from notifications?
 //todo: wayland + windows detection
+//todo: delayed start?
