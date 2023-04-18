@@ -1,1 +1,4 @@
 /target
+/extension/.parcel-cache
+/extension/dist
+/extension/node_modules

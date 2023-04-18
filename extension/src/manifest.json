@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "name": "Watchwah",
+  "version": "0.1.0",
+
+  "background": {
+    "scripts": ["background.ts"],
+    "persistent": true
+  }
+}
