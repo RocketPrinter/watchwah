@@ -1,19 +1,19 @@
-use common::timer::{
-    PomodoroPeriod, PomodoroState, Timer, TimerGoal, TimerPeriod, TimerState,
-};
-use common::ws_common::ServerToClient;
-use crate::{SState};
+use crate::SState;
 use anyhow::{anyhow, bail, Result};
 use chrono::{Duration, Utc};
+use common::timer::{PeriodProgress, PeriodType, Timer, TimerGoal, TimerState};
+use common::ws_common::ServerToClient;
 use tokio::select;
 use tracing::{error, info};
 
 pub async fn create_timer(
+    timer: &mut Option<Timer>,
     state: &SState,
     goal: TimerGoal,
     profile_name: String,
-) -> Result<ServerToClient> {
-    let mut timer = state.timer.lock().await;
+    start_in: Option<Duration>,
+) -> Result<SyncToken> {
+
     if timer.is_some() {
         bail!("Timer is already created")
     }
@@ -29,84 +29,60 @@ pub async fn create_timer(
         .ok_or_else(|| anyhow!("Profile not found"))?
         .clone();
 
-    // we set the limit later cause we need the object to be created first
-    let timer_state = TimerState {
-        period: TimerPeriod::Running {
-            elapsed: Duration::zero(),
-            start: Default::default(),
-            limit: None,
-        },
-        pomodoro: profile.pomodoro.as_ref().map(|_| PomodoroState {
-            total_dur_worked: Duration::zero(),
-            current_period: PomodoroPeriod::Work,
-            small_breaks: 0,
-        }),
-    };
-
-    let mut new_timer = Timer {
+    // create new timer
+    *timer = Some(Timer {
         profile,
         goal,
-        state: timer_state,
-    };
+        state: TimerState {
+            progress: PeriodProgress::Uninit,
+            period: PeriodType::Uninit,
+            total_dur_worked: Duration::zero(),
+            small_breaks: 0,
+        },
+    });
 
-    // now that the object is created we can use the get_limit function
-    let limit = calc_work_period_limit(&new_timer);
+    let Some(ref mut timer) = *timer else {panic!()};
 
-    new_timer.state.period = TimerPeriod::Running {
-        elapsed: Duration::zero(),
-        start: Utc::now(),
-        limit,
-    };
-    *timer = Some(new_timer);
-
-    if let Some(limit) = limit {
-        spawn_task(state.clone(), limit);
-    }
-
-    info!("Timer started");
-
-    Ok(ServerToClient::UpdateTimer(
-        timer.clone().map(Box::new)),
-    )
+    Ok(if let Some(start_in) = start_in {
+        // start with a break
+        set_next_period(timer, state.clone(), (PeriodType::StartingBreak, Some(start_in)))?
+    } else {
+        // start normally
+        set_next_period(timer, state.clone(), pick_next_period(timer))?
+    }.max(SyncToken::Timer))
 }
 
-pub async fn pause_timer(state: &SState) -> Result<ServerToClient> {
-    let Some(ref mut timer) = *state.timer.lock().await else {
-        bail!("Timer is not created")
-    };
+pub fn pause_timer(timer: &mut Timer, state: &SState) -> Result<SyncToken> {
+    state.cancel_timer_task.notify_waiters();
 
-    state.cancel_timer.notify_waiters();
-
-    timer.state.period = match timer.state.period {
-        TimerPeriod::Paused { .. } => bail!("Timer is already paused"),
-        TimerPeriod::Running {
+    timer.state.progress = match timer.state.progress {
+        PeriodProgress::Uninit => bail!("Timer is not initialized"),
+        PeriodProgress::Paused { .. } => bail!("Timer is already paused"),
+        PeriodProgress::Running {
             elapsed,
             start,
             limit,
-        } => TimerPeriod::Paused {
+        } => PeriodProgress::Paused {
             elapsed: elapsed + (Utc::now() - start),
             limit,
         },
     };
 
     info!("Timer paused");
-    Ok(ServerToClient::UpdateTimerState(timer.state.clone()))
+    Ok(SyncToken::TimerState)
 }
 
-pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
-    let Some(ref mut timer) = *state.timer.lock().await else {
-        bail!("Timer is not created")
-    };
-
-    timer.state.period = match timer.state.period {
-        TimerPeriod::Running { .. } => bail!("Timer is already running!"),
-        TimerPeriod::Paused { elapsed, limit } => {
+pub fn unpause_timer(timer: &mut Timer, state: &SState) -> Result<SyncToken> {
+    timer.state.progress = match timer.state.progress {
+        PeriodProgress::Uninit => bail!("Timer is not initialized"),
+        PeriodProgress::Running { .. } => bail!("Timer is already running!"),
+        PeriodProgress::Paused { elapsed, limit } => {
             if let Some(limit) = limit {
                 let awake_in = (limit - elapsed).max(Duration::zero());
                 spawn_task(state.clone(), awake_in);
             }
 
-            TimerPeriod::Running {
+            PeriodProgress::Running {
                 elapsed,
                 start: Utc::now(),
                 limit,
@@ -115,26 +91,108 @@ pub async fn unpause_timer(state: &SState) -> Result<ServerToClient> {
     };
 
     info!("Timer unpaused");
-    Ok(ServerToClient::UpdateTimerState(timer.state.clone()))
+    Ok(SyncToken::TimerState)
 }
 
-pub async fn stop_timer(state: &SState) -> Result<ServerToClient> {
-    let mut timer = state.timer.lock().await;
+pub fn skip_period(timer: &mut Timer, state: &SState) -> Result<SyncToken> {
+    let msg = set_next_period(timer, state.clone(), pick_next_period(timer))?;
+
+    info!("Timer skipped period");
+    Ok(msg)
+}
+
+pub fn stop_timer(timer: &mut Option<Timer>, state: &SState) -> Result<SyncToken> {
     if timer.is_none() {
         bail!("Timer isn't created!")
     }
-    state.cancel_timer.notify_waiters();
+    state.cancel_timer_task.notify_waiters();
     *timer = None;
 
     info!("Timer stopped");
-    Ok(ServerToClient::UpdateTimer(None))
+    Ok(SyncToken::Timer)
+}
+
+// region Helpers
+
+/// Used to determine what ServerToClient message to send to clients to share the timer state
+#[must_use]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SyncToken {
+    #[allow(dead_code)]
+    None,
+    TimerState,
+    Timer
+}
+
+impl SyncToken {
+    pub fn to_msg(self, timer: Option<&Timer>) -> Option<ServerToClient> {
+        Some(match self {
+            SyncToken::None => return None,
+            SyncToken::TimerState => {
+                let Some(timer) = timer else {return None};
+                ServerToClient::UpdateTimerState(Box::new(timer.state.clone()))
+            },
+            SyncToken::Timer => ServerToClient::UpdateTimer(timer.map(|t| Box::new(t.clone()))),
+        })
+    }
+}
+
+fn pick_next_period(timer: &Timer) -> (PeriodType, Option<Duration>) {
+    use PeriodType::*;
+    if let Some(pomodoro) = &timer.profile.pomodoro {
+        match timer.state.period {
+            Work => {
+                if timer.state.small_breaks >= pomodoro.small_breaks_between_big_ones {
+                    (LongBreak, Some(pomodoro.long_break_dur))
+                } else {
+                    (ShortBreak, Some(pomodoro.small_break_dur))
+                }
+            }
+            _ => (Work, TimerGoal::time_left(timer).min(Some(pomodoro.work_dur))),
+        }
+    } else {
+        (Work, TimerGoal::time_left(timer) )
+    }
+}
+
+fn set_next_period(timer: &mut Timer, state: SState, period: (PeriodType, Option<Duration>)) -> Result<SyncToken> {
+    // setup next period
+    timer.state.period = period.0;
+    timer.state.progress = PeriodProgress::Running {
+        elapsed: Duration::zero(),
+        start: Utc::now(),
+        limit: period.1,
+    };
+
+    // extra logic per period type
+    match timer.state.period {
+        PeriodType::Work =>
+            if let Some(dur) = period.1 {
+                timer.state.total_dur_worked = timer.state.total_dur_worked + dur;
+            }
+        PeriodType::ShortBreak => timer.state.small_breaks += 1,
+        PeriodType::LongBreak => timer.state.small_breaks = 0,
+        _ => {}
+    };
+
+    // make sure there are no other tasks
+    state.cancel_timer_task.notify_waiters();
+
+    // spawn timer task
+    if let Some(dur) = period.1 {
+        spawn_task(state, dur);
+    }
+
+    Ok(SyncToken::TimerState)
 }
 
 fn spawn_task(state: SState, awake_in: Duration) {
-    if awake_in <= Duration::zero() { return; }
+    if awake_in <= Duration::zero() {
+        return;
+    }
 
     // cancel any existing timer tasks
-    state.cancel_timer.notify_waiters();
+    state.cancel_timer_task.notify_waiters();
 
     // spawn task
     tokio::spawn(async move {
@@ -142,112 +200,25 @@ fn spawn_task(state: SState, awake_in: Duration) {
             error!("Error in timer task: {e}")
         }
     });
-}
 
-
-async fn timer_task(state: SState, awake_in: Duration) -> Result<()> {
-    info!("Waiting {awake_in:?}");
-
-    select! {
-        _ = state.cancel_timer.notified() => {return Ok(())}
-
-        // we either skip or await until it's over
-        _ = state.skip_period.notified() => { info!("Skipping...") }
-        _ = tokio::time::sleep(awake_in.to_std()?) => { }
-    }
-
-    let mut mutex = state.timer.lock().await;
-    let Some(ref mut timer) =  *mutex else {
-        bail!("Timer is not created")
-    };
-    if let TimerPeriod::Paused { .. } = timer.state.period {
-        bail!("Timer is paused")
-    }
-
-    match &mut timer.state.pomodoro {
-        Some(ref mut pomodoro) => {
-            let pomo_settings = timer.profile.pomodoro.as_ref().unwrap();
-
-            let limit = match pomodoro.current_period {
-                PomodoroPeriod::Work => {
-                    // we did some work, break comes next
-                    // but first we add the duration worked to the total
-                    pomodoro.total_dur_worked =
-                        pomodoro.total_dur_worked + timer.state.period.limit().unwrap_or_else(|| timer.state.period.elapsed());
-
-                    // check if we finished
-                    if let TimerGoal::Time(limit) = &timer.goal {
-                        if pomodoro.total_dur_worked >= *limit {
-                            // we reached the goal, stop the timer
-                            drop(mutex);
-                            state.ws_tx.send(stop_timer(&state).await?)?;
-                            return Ok(());
-                        }
-                    }
-
-                    if pomodoro.small_breaks >= pomo_settings.small_breaks_between_big_ones {
-                        // we took enough small breaks, time for a big one
-                        pomodoro.small_breaks = 0;
-                        pomodoro.current_period = PomodoroPeriod::LongBreak;
-                        Some(pomo_settings.long_break_dur)
-                    } else {
-                        // small break
-                        pomodoro.small_breaks += 1;
-                        pomodoro.current_period = PomodoroPeriod::ShortBreak;
-                        Some(pomo_settings.small_break_dur)
-                    }
-                }
-                PomodoroPeriod::ShortBreak | PomodoroPeriod::LongBreak => {
-                    // we took a break, work follows next
-
-                    pomodoro.current_period = PomodoroPeriod::Work;
-                    calc_work_period_limit(timer)
-                }
-            };
-
-            // start the period again
-            timer.state.period = TimerPeriod::Running {
-                elapsed: Duration::zero(),
-                start: Utc::now(),
-                limit,
-            };
-
-            if let Some(limit) = limit {
-                spawn_task(state.clone(), limit);
-            }
-
-            state.ws_tx.send(ServerToClient::UpdateTimerState(timer.state.clone()))?;
+    async fn timer_task(state: SState, awake_in: Duration) -> Result<()> {
+        // await for the task to cet cancelled or the duration to pass
+        select! {
+                _ = state.cancel_timer_task.notified() => return Ok(()),
+                _ = tokio::time::sleep(awake_in.to_std()?) => { }
         }
-        None => {
-            // it means that the duration ended so we can stop the timer
-            // quick sanity check:
-            let TimerGoal::Time{..} = timer.goal else { bail!("Reaching this state should be impossible"); };
-            drop(mutex);
-            state.ws_tx.send(stop_timer(&state).await?)?;
+
+        // start next period
+        let mut timer = state.timer.lock().await;
+        let timer = timer.as_mut().ok_or_else(|| anyhow!("Timer isn't created!"))?;
+        let msg = set_next_period(timer, state.clone(), pick_next_period(&timer))?.to_msg(Some(timer));
+
+        // sync clients if necessary
+        if let Some(msg) = msg {
+            state.ws_tx.send(msg)?;
         }
+
+        Ok(())
     }
-
-    Ok(())
 }
-
-// how long the timer should last for the next work period
-fn calc_work_period_limit(timer: &Timer) -> Option<Duration> {
-    // pomodoro limit
-    let mut limit = timer.profile.pomodoro.as_ref().map(|p| p.work_dur);
-
-    // time goal limit
-    if let TimerGoal::Time(ref dur) = timer.goal {
-        let total_dur_worked = timer
-            .state
-            .pomodoro
-            .as_ref()
-            .map(|p| p.total_dur_worked)
-            .unwrap_or(Duration::zero());
-        let dur = *dur - total_dur_worked;
-        if limit.is_none() || limit.unwrap() > dur {
-            limit = Some(dur);
-        }
-    }
-
-    limit
-}
+// endregion

@@ -14,60 +14,54 @@ pub struct Timer {
 }
 
 #[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TimerGoal {
-    /// overrides EarlyStopBehaviour::Never
-    None,
-    Time(#[serde_as(as = "DurationSeconds<i64>")] Duration),
-    // todo: Pomodoro(u32)
+    #[default] None,
     Todos(u32),
+
+    Time(#[serde_as(as = "DurationSeconds<i64>")] Duration),
+    Pomodoros(u32),
+}
+
+impl TimerGoal {
+    /// total time limit
+    pub fn time_limit(timer: &Timer) -> Option<Duration> {
+        match timer.goal {
+            TimerGoal::None | TimerGoal::Todos(_) => None,
+            TimerGoal::Time(dur) => Some(dur),
+            TimerGoal::Pomodoros(n) => Some(timer.profile.pomodoro.as_ref()?.work_dur * n as i32),
+        }
+    }
+
+    // time left of the time limit
+    pub fn time_left(timer: &Timer) -> Option<Duration> {
+        TimerGoal::time_limit(timer).map(|dur| dur - timer.state.total_dur_worked)
+    }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TimerState {
-    pub period: TimerPeriod,
-    pub pomodoro: Option<PomodoroState>,
-}
+    pub progress: PeriodProgress,
+    pub period: PeriodType,
 
-impl TimerState {
-    pub fn should_block(&self) -> bool {
-        self.period.is_running()
-            && self
-                .pomodoro.as_ref()
-                .map(|p| p.current_period == PomodoroPeriod::Work)
-                .unwrap_or(true)
-    }
-
-    pub fn is_work_period(&self) -> bool {
-        self
-            .pomodoro.as_ref()
-            .map(|p| p.current_period == PomodoroPeriod::Work)
-            .unwrap_or(true)
-    }
-}
-
-#[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PomodoroState {
-    /// total duration of previous work periods
+    /// total duration worked, includes current work period
     #[serde_as(as = "DurationSeconds<i64>")]
     pub total_dur_worked: Duration,
-    pub current_period: PomodoroPeriod,
     /// small breaks since the last long break
     pub small_breaks: u32,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum PomodoroPeriod {
-    Work,
-    ShortBreak,
-    LongBreak,
+impl TimerState {
+    pub fn should_block(&self) -> bool {
+        self.progress.is_running() && matches!(self.period, PeriodType::Work)
+    }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TimerPeriod {
+pub enum PeriodProgress {
+    Uninit,
     Running {
         // doesn't include the time between start and now
         #[serde_as(as = "DurationSeconds<i64>")]
@@ -86,26 +80,39 @@ pub enum TimerPeriod {
         limit: Option<Duration>,
     },
 }
+use PeriodProgress::*;
 
-impl TimerPeriod {
+impl PeriodProgress {
     pub fn is_running(&self) -> bool {
         match self {
-            TimerPeriod::Running { .. } => true,
-            TimerPeriod::Paused { .. } => false,
+            Uninit => false,
+            Running { .. } => true,
+            Paused { .. } => false,
         }
     }
 
     pub fn elapsed(&self) -> Duration {
         match self {
-            TimerPeriod::Running { elapsed, start, .. } => *elapsed + (Utc::now() - *start),
-            TimerPeriod::Paused { elapsed, .. } => *elapsed,
+            Uninit => Duration::zero(),
+            Running { elapsed, start, .. } => *elapsed + (Utc::now() - *start),
+            Paused { elapsed, .. } => *elapsed,
         }
     }
 
     pub fn limit(&self) -> Option<Duration> {
         match self {
-            TimerPeriod::Running { limit, .. } => *limit,
-            TimerPeriod::Paused { limit, .. } => *limit,
+            Uninit => Some(Duration::zero()),
+            Running { limit, .. } => *limit,
+            Paused { limit, .. } => *limit,
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PeriodType {
+    Uninit,
+    Work,
+    StartingBreak,
+    ShortBreak,
+    LongBreak,
 }

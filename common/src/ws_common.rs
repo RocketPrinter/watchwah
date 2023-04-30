@@ -1,53 +1,38 @@
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::DurationSeconds;
 
-use crate::timer::{TimerGoal, Timer, TimerState};
+use crate::timer::{Timer, TimerGoal, TimerState};
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[must_use]
 pub enum ClientToServer {
-    CreateTimer { goal: TimerGoal, profile_name: String },
+    CreateTimer {
+        goal: TimerGoal,
+        profile_name: String,
+        #[serde_as(as = "Option<DurationSeconds<i64>>")]
+        start_in: Option<Duration>,
+    },
     PauseTimer,
     UnpauseTimer,
     StopTimer,
     SkipPeriod,
 
     // todo: SetTodos,
-
     Multiple(Vec<ClientToServer>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[must_use]
 pub enum ServerToClient {
     UpdateProfiles(Vec<String>),
     UpdateTimer(Option<Box<Timer>>),
-    UpdateTimerState(TimerState),
+    UpdateTimerState(Box<TimerState>),
 
     // todo: UpdateTodos
-
     RefreshedConfig,
 
     Multiple(Vec<ServerToClient>),
-}
-
-impl ClientToServer {
-    //noinspection DuplicatedCode
-    pub fn chain(self, msg: Self) -> Self {
-        if let Self::Multiple(mut msgs) = self {
-            msgs.push(msg);
-            Self::Multiple(msgs)
-        } else {
-            Self::Multiple(vec![self, msg])
-        }
-    }
-}
-
-impl ServerToClient {
-    //noinspection DuplicatedCode
-    pub fn chain(self, msg: Self) -> Self {
-        if let Self::Multiple(mut msgs) = self {
-            msgs.push(msg);
-            Self::Multiple(msgs)
-        } else {
-            Self::Multiple(vec![self, msg])
-        }
-    }
 }

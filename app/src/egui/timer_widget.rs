@@ -3,10 +3,10 @@ use eframe::egui::{Button, Color32, ProgressBar, RichText, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
 use crate::egui::centerer::centerer;
 use crate::State;
-use common::timer::{PomodoroPeriod, Timer, TimerPeriod, TimerState};
+use common::timer::{PeriodProgress, PeriodType, Timer, TimerState};
 use common::ws_common::ClientToServer;
 
-// todo: incomplete
+// todo: incomplete, rewrite whole thing
 pub fn ui(ui: &mut Ui, state: &State) {
     let Some(ref timer) = state.timer else {return};
 
@@ -16,24 +16,27 @@ pub fn ui(ui: &mut Ui, state: &State) {
         // title
         ui.heading(title);
 
-        time_progress_bar(ui, &timer.state.period);
+        time_progress_bar(ui, &timer.state.progress);
 
         buttons(ui, state, timer);
     });
 }
 
 fn color_and_title(timer_state: &TimerState) -> (Color32, &'static str) {
-    if let TimerPeriod::Paused {..} = timer_state.period {
+    if let PeriodProgress::Paused {..} = timer_state.progress {
         return (Color32::from_rgb(255, 255, 255), "Paused")
     }
-    match timer_state.pomodoro.as_ref().map(|p| &p.current_period) {
-        Some(PomodoroPeriod::ShortBreak) => (Color32::from_rgb(255, 255, 255), "Break"),
-        Some(PomodoroPeriod::LongBreak) => (Color32::from_rgb(255, 255, 255), "Long Break"),
-        Some(PomodoroPeriod::Work) | None => (Color32::from_rgb(255, 255, 255), "Work"),
+
+    match &timer_state.period {
+        PeriodType::Uninit => (Color32::from_rgb(255, 255, 255), "Uninit"),
+        PeriodType::Work => (Color32::from_rgb(255, 255, 255), "Work"),
+        PeriodType::StartingBreak => (Color32::from_rgb(255, 255, 255), "Starting Break"),
+        PeriodType::ShortBreak => (Color32::from_rgb(255, 255, 255), "Break"),
+        PeriodType::LongBreak  => (Color32::from_rgb(255, 255, 255), "Long Break"),
     }
 }
 
-fn time_progress_bar(ui: &mut Ui, period: &TimerPeriod) {
+fn time_progress_bar(ui: &mut Ui, period: &PeriodProgress) {
     let elapsed = period.elapsed();
 
     if let Some(limit) = period.limit() {
@@ -69,7 +72,7 @@ fn time_progress_bar(ui: &mut Ui, period: &TimerPeriod) {
 
 fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
     centerer(ui, |ui| {
-        if let TimerPeriod::Running {..} = timer.state.period {
+        if let PeriodProgress::Running {..} = timer.state.progress {
             // todo: early stop behaviour
 
             if ui.add_enabled(true,Button::new("Pause").min_size(vec2(70.,1.))).clicked() {
@@ -84,8 +87,8 @@ fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
         }
 
         // skipping only makes sense if pomodoro is enabled
-        if timer.state.pomodoro.is_some() {
-            let enabled = timer.profile.can_skip_work || !timer.state.is_work_period();
+        if timer.profile.pomodoro.is_some() {
+            let enabled = timer.profile.can_skip_work || !matches!(timer.state.period, PeriodType::Work);
             if ui.add_enabled(enabled, Button::new("Skip").min_size(vec2(70.,1.))).clicked() {
                 state.ws_tx.send(ClientToServer::SkipPeriod).unwrap();
             }

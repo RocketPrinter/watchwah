@@ -23,8 +23,7 @@ pub struct State {
     pub conf: RwLock<ServerConfig>,
 
     pub timer: Mutex<Option<Timer>>,
-    pub cancel_timer: Arc<Notify>,
-    pub skip_period: Arc<Notify>,
+    pub cancel_timer_task: Arc<Notify>,
 }
 
 // todo: tracing
@@ -47,8 +46,7 @@ pub async fn main() {
             }
         },
         timer: Mutex::new(None),
-        cancel_timer: Arc::new(Notify::new()),
-        skip_period: Arc::new(Notify::new()),
+        cancel_timer_task: Arc::new(Notify::new()),
     });
 
     // config monitor

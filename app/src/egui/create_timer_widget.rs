@@ -7,18 +7,11 @@ use chrono::Duration;
 use eframe::egui::{Button, ComboBox, Ui};
 use eframe::egui::mutex::Mutex;
 
+#[derive(Clone, Debug, Default)]
 pub struct CreateTimerState {
     pub selected_profile: Option<String>,
     pub selected_goal: TimerGoal,
-}
-
-impl Default for CreateTimerState {
-    fn default() -> Self {
-        Self {
-            selected_profile: None,
-            selected_goal: TimerGoal::None,
-        }
-    }
+    pub start_in: Option<Duration>,
 }
 
 pub fn ui(ui: &mut Ui, state: &State) {
@@ -72,6 +65,12 @@ pub fn ui(ui: &mut Ui, state: &State) {
         {
             data.selected_goal = TimerGoal::Todos(69);
         }
+        if ui
+            .selectable_label(matches!(data.selected_goal, TimerGoal::Pomodoros(_)), "Pomodoros")
+            .clicked()
+        {
+            data.selected_goal = TimerGoal::Pomodoros(69);
+        }
     });
 
     match data.selected_goal {
@@ -83,9 +82,15 @@ pub fn ui(ui: &mut Ui, state: &State) {
             });
         }
         TimerGoal::Todos(_count) => {
-            ui.label("todo");
+            ui.label("todo"); // todo
+        }
+        TimerGoal::Pomodoros(_count) => {
+            ui.label("todo"); // todo
         }
     }
+
+    // start in
+    // todo:
 
     // Start button
     if ui
@@ -97,6 +102,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
             .send(ClientToServer::CreateTimer {
                 profile_name: data.selected_profile.clone().unwrap(),
                 goal: data.selected_goal.clone(),
+                start_in: data.start_in,
             })
             .ok();
     }

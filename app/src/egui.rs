@@ -5,11 +5,8 @@ mod timer_widget;
 mod top_panel;
 
 use crate::SState;
-use eframe::egui::{Context, CentralPanel, Slider, Widget};
-use rodio::Source;
-use rodio::source::SineWave;
+use eframe::egui::{Context, CentralPanel};
 use tracing::{info, instrument};
-use crate::audio_manager::SoundEffects;
 
 #[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {

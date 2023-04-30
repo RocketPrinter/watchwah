@@ -1,21 +1,20 @@
-use common::profile::Profile;
-use common::ws_common::ServerToClient;
-use crate::{SState, timer_logic};
+use crate::{timer_logic, SState};
 use anyhow::{bail, Result};
+use common::get_config_path;
+use common::profile::Profile;
 use notify::event::{CreateKind, RemoveKind};
 use notify::{EventKind, RecursiveMode, Watcher};
+use serde::{Deserialize, Serialize};
 use std::fs;
+use std::ops::Deref;
 use std::path::PathBuf;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info, instrument};
-use serde::{Deserialize, Serialize};
-use common::get_config_path;
+use common::ws_common::ServerToClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerConfig {
-
     // todo: key
-
     #[serde(skip)] // generated from neighboring files
     pub profiles: Vec<Profile>,
 }
@@ -37,9 +36,23 @@ pub async fn config_monitor(state: SState) -> Result<()> {
             match tokio::task::spawn_blocking(load_config).await.unwrap() {
                 Ok(new_conf) => {
                     info!("Config updated!");
-                    {*state.conf.write().await = new_conf;}
-                    if let Ok(msg) = timer_logic::stop_timer(&state).await {
-                        state.ws_tx.send(msg.chain(profiles_msg(&state).await)).ok();
+                    {
+                        *state.conf.write().await = new_conf;
+                    }
+
+                    let mut timer = state.timer.lock().await;
+                    if timer.is_some() {
+                        // we don't propagate the error as that would stop the monitor
+                        match timer_logic::stop_timer(&mut *timer, &state) {
+                            Ok(msg) => {
+                                let msg = ServerToClient::Multiple(vec![
+                                    profiles_msg(state.conf.read().await.deref()),
+                                    msg.to_msg(timer.as_ref()).unwrap(),
+                                ]);
+                                state.ws_tx.send(msg).ok();
+                            }
+                            Err(e) => error!("Failed to stop timer: {e}"),
+                        }
                     }
                 }
                 Err(e) => error!("Failed to parse config: {e}"),
@@ -50,17 +63,8 @@ pub async fn config_monitor(state: SState) -> Result<()> {
     Ok(())
 }
 
-pub async fn profiles_msg(state: &SState) -> ServerToClient {
-    ServerToClient::UpdateProfiles(
-        state
-            .conf
-            .read()
-            .await
-            .profiles
-            .iter()
-            .map(|p| p.name.to_string())
-            .collect(),
-    )
+pub fn profiles_msg(conf: &ServerConfig) -> ServerToClient {
+    ServerToClient::UpdateProfiles(conf.profiles.iter().map(|p| p.name.to_string()).collect())
 }
 
 pub fn load_config() -> Result<ServerConfig> {

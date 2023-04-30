@@ -1,16 +1,18 @@
-use std::net::SocketAddr;
-use common::ws_common::{ClientToServer, ServerToClient};
-use crate::{server_config, SState, timer_logic};
+use crate::server_config::{profiles_msg};
+use crate::{timer_logic, SState};
 use anyhow::{bail, Result};
 use axum::extract::ws::{Message, WebSocket};
+use common::ws_common::{ClientToServer, ServerToClient};
+use std::net::SocketAddr;
+use std::ops::Deref;
 use tokio::select;
 use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tracing::{error, info, instrument, warn};
 use ClientToServer::*;
 
-pub fn serialize_incoming(broadcast_tx: Sender<String>) -> UnboundedSender<ServerToClient>{
-    let (tx,mut rx) = unbounded_channel::<ServerToClient>();
+pub fn serialize_incoming(broadcast_tx: Sender<String>) -> UnboundedSender<ServerToClient> {
+    let (tx, mut rx) = unbounded_channel::<ServerToClient>();
 
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -31,7 +33,12 @@ pub fn serialize_incoming(broadcast_tx: Sender<String>) -> UnboundedSender<Serve
 }
 
 #[instrument(name = "server ws", skip_all)]
-pub async fn handle_socket(mut ws: WebSocket, ip: SocketAddr, state: SState, mut rx: Receiver<String>) {
+pub async fn handle_socket(
+    mut ws: WebSocket,
+    ip: SocketAddr,
+    state: SState,
+    mut rx: Receiver<String>,
+) {
     info!("Connection established. Ip: {ip}");
 
     if let Err(e) = send_welcome_message(&mut ws, &state).await {
@@ -65,16 +72,6 @@ pub async fn handle_socket(mut ws: WebSocket, ip: SocketAddr, state: SState, mut
     }
 }
 
-async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> {
-    let msg = ServerToClient::Multiple(vec![
-        server_config::profiles_msg(state).await,
-        ServerToClient::UpdateTimer(state.timer.lock().await.clone().map(Box::new)),
-    ]);
-
-    ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;
-    Ok(())
-}
-
 async fn handle_receive(state: &SState, msg: String) -> Result<()> {
     let msg = serde_json::from_str(&msg)?;
 
@@ -89,17 +86,46 @@ async fn handle_receive(state: &SState, msg: String) -> Result<()> {
     return Ok(());
 
     async fn handle_msg(state: &SState, msg: ClientToServer) -> Result<()> {
-        let response = match msg {
-            CreateTimer { goal, profile_name } => timer_logic::create_timer(state, goal, profile_name).await?,
-            PauseTimer => timer_logic::pause_timer(state).await?,
-            UnpauseTimer => timer_logic::unpause_timer(state).await?,
-            StopTimer => timer_logic::stop_timer(state).await?,
-            SkipPeriod => {state.skip_period.notify_waiters(); return Ok(());},
+        let mut timer = state.timer.lock().await;
 
-            Multiple(_) => bail!("Recursive messages not supported"),
-        };
-        state.ws_tx.send(response)?;
+        let response = match msg {
+            CreateTimer {
+                goal,
+                profile_name,
+                start_in,
+            } => timer_logic::create_timer(&mut timer, state, goal, profile_name, start_in).await?,
+
+            StopTimer => timer_logic::stop_timer(&mut timer, state)?,
+
+            msg @ (PauseTimer | UnpauseTimer | SkipPeriod) => {
+                let Some(ref mut timer) = *timer else {bail!("Timer is not created!") };
+
+                match msg {
+                    PauseTimer => timer_logic::pause_timer(timer, state)?,
+                    UnpauseTimer => timer_logic::unpause_timer(timer, state)?,
+                    SkipPeriod => timer_logic::skip_period(timer, state)?,
+                    _ => unreachable!(),
+                }
+            }
+
+            Multiple(_) => bail!("Recursive messages are not supported"),
+
+        }.to_msg(timer.as_ref());
+
+        if let Some(response) = response {
+            state.ws_tx.send(response)?;
+        }
 
         Ok(())
     }
+}
+
+async fn send_welcome_message(ws: &mut WebSocket, state: &SState) -> Result<()> {
+    let msg = ServerToClient::Multiple(vec![
+        profiles_msg(state.conf.read().await.deref()),
+        ServerToClient::UpdateTimer(state.timer.lock().await.clone().map(Box::new)),
+    ]);
+
+    ws.send(Message::Text(serde_json::to_string(&msg)?)).await?;
+    Ok(())
 }

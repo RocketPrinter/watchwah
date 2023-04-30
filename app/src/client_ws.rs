@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::time::Duration;
 use tokio::{select};
 use tokio::sync::mpsc::{UnboundedReceiver};
@@ -81,7 +82,7 @@ fn handle_msg(state: &SState, msg: ServerToClient) {
         UpdateProfiles(profiles) => { state.profiles = profiles; },
         UpdateTimer(timer) => { state.timer = timer; state.timer_updated.notify_one(); }
         UpdateTimerState(timer_state) => if let Some(ref mut timer) = state.timer {
-            timer.state = timer_state;
+            timer.state = timer_state.deref().clone();
             state.timer_updated.notify_one();
         }
 
