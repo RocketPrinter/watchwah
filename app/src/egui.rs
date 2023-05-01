@@ -15,7 +15,10 @@ pub const TOMATO: char = match char::from_u32(0x1F345) {
 
 #[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        follow_system_theme: true,
+        ..Default::default()
+    };
     eframe::run_native(
         "Watchwah",
         native_options,
@@ -30,8 +33,11 @@ struct EguiApp {
 
 impl EguiApp {
     pub fn new(cc: &eframe::CreationContext<'_>, state: SState) -> Self {
-        state.lock().unwrap().egui_context = Some(cc.egui_ctx.clone());
-
+        {
+            let mut state = state.lock().unwrap();
+            state.egui_context = Some(cc.egui_ctx.clone());
+            state.config.theme.set(cc);
+        }
         info!("Starting egui");
         EguiApp { state }
     }

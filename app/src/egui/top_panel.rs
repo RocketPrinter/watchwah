@@ -1,3 +1,4 @@
+use catppuccin_egui::FRAPPE;
 use chrono::{Utc};
 use eframe::egui;
 use crate::State;
