@@ -1,5 +1,5 @@
 use chrono::Duration;
-use eframe::egui::{DragValue, Response, Ui, Widget};
+use eframe::egui::{DragValue, Response, Ui, vec2, Widget};
 
 pub fn ui(ui: &mut Ui, dur: &mut Duration) -> Response {
     ui.horizontal(|ui| {
@@ -8,6 +8,7 @@ pub fn ui(ui: &mut Ui, dur: &mut Duration) -> Response {
         let mut minutes = dur.num_minutes() % 60;
 
         DragValue::new(&mut hours).clamp_range(0..=999).suffix("h").ui(ui);
+        ui.add_space(-6.);
         DragValue::new(&mut minutes).clamp_range(if hours == 0 {1..=59} else {0..=59}).suffix("m").ui(ui);
 
         *dur = Duration::hours(hours) + Duration::minutes(minutes);
