@@ -8,6 +8,11 @@ use crate::SState;
 use eframe::egui::{Context, CentralPanel};
 use tracing::{info, instrument};
 
+pub const TOMATO: char = match char::from_u32(0x1F345) {
+    Some(c) => c,
+    None => panic!(),
+};
+
 #[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {
     let native_options = eframe::NativeOptions::default();
@@ -36,7 +41,7 @@ impl eframe::App for EguiApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         let state = self.state.lock().unwrap();
 
-        top_panel::ui(ctx, &state);
+        top_panel::panel(ctx, &state);
 
         CentralPanel::default().show(ctx, |ui| {
             if state.timer.is_some() {

@@ -27,7 +27,8 @@ pub enum ClientToServer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[must_use]
 pub enum ServerToClient {
-    UpdateProfiles(Vec<String>),
+    /// (name, pomodoro)
+    UpdateProfiles(Vec<ProfileInfo>),
     UpdateTimer(Option<Box<Timer>>),
     UpdateTimerState(Box<TimerState>),
 
@@ -35,4 +36,12 @@ pub enum ServerToClient {
     RefreshedConfig,
 
     Multiple(Vec<ServerToClient>),
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProfileInfo {
+    pub name: String,
+    #[serde_as(as = "Option<DurationSeconds<i64>>")]
+    pub pomo_work_dur: Option<Duration>
 }

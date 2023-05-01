@@ -13,7 +13,7 @@ use tokio::sync::Notify;
 use common::register_tracing;
 use crate::client_config::ClientConfig;
 use common::timer::Timer;
-use common::ws_common::ClientToServer;
+use common::ws_common::{ClientToServer, ProfileInfo};
 use anyhow::Result;
 use crate::audio_manager::AudioManager;
 
@@ -21,7 +21,7 @@ pub type SState = Arc<Mutex<State>>;
 pub struct State {
     pub config: ClientConfig,
 
-    pub profiles: Vec<String>,
+    pub profiles: Vec<ProfileInfo>,
     pub timer: Option<Box<Timer>>,
     pub timer_updated: Arc<Notify>,
 
@@ -82,3 +82,4 @@ pub async fn main() -> Result<()> {
 // switch away from notifications?
 //todo: wayland + windows detection
 //todo: delayed start?
+//todo: notify 1 min before end of period

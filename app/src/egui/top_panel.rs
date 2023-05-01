@@ -1,10 +1,11 @@
 use chrono::{Utc};
+use eframe::egui;
 use crate::State;
 use eframe::egui::{Align, CollapsingHeader, Color32, Context, Label, Layout, popup_below_widget, Response, RichText, ScrollArea, Sense, TextStyle, TopBottomPanel, Ui};
 use eframe::egui::special_emojis::GITHUB;
 use crate::audio_manager::SoundEffects;
 
-pub fn ui(ctx: &Context, state: &State) {
+pub fn panel(ctx: &Context, state: &State) {
     TopBottomPanel::top("top")
         .min_height(0.)
         .show(ctx, |ui| {
@@ -41,6 +42,10 @@ fn popup(ui: &mut Ui, logo_response: &Response, state: &State) {
         }
         ui.label(format!("Connected: {0}", state.ws_connected));
         ui.label(format!("Updates: {0}", updates));
+        let mut debug_on_hover = ui.ctx().debug_on_hover();
+        if ui.checkbox(&mut debug_on_hover, "Debug on hover").changed() {
+            ui.ctx().set_debug_on_hover(debug_on_hover);
+        }
 
         CollapsingHeader::new("Detected windows").default_open(true).show(ui, |ui| {
             let utc = Utc::now();

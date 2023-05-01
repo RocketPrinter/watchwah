@@ -20,7 +20,7 @@ pub enum TimerGoal {
     Todos(u32),
 
     Time(#[serde_as(as = "DurationSeconds<i64>")] Duration),
-    Pomodoros(u32),
+    //Pomodoros(u32),
 }
 
 impl TimerGoal {
@@ -29,7 +29,7 @@ impl TimerGoal {
         match timer.goal {
             TimerGoal::None | TimerGoal::Todos(_) => None,
             TimerGoal::Time(dur) => Some(dur),
-            TimerGoal::Pomodoros(n) => Some(timer.profile.pomodoro.as_ref()?.work_dur * n as i32),
+            //TimerGoal::Pomodoros(n) => Some(timer.profile.pomodoro.as_ref()?.work_dur * n as i32),
         }
     }
 

@@ -10,7 +10,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info, instrument};
-use common::ws_common::ServerToClient;
+use common::ws_common::{ProfileInfo, ServerToClient};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -64,7 +64,10 @@ pub async fn config_monitor(state: SState) -> Result<()> {
 }
 
 pub fn profiles_msg(conf: &ServerConfig) -> ServerToClient {
-    ServerToClient::UpdateProfiles(conf.profiles.iter().map(|p| p.name.to_string()).collect())
+    ServerToClient::UpdateProfiles(conf.profiles.iter().map(|p| ProfileInfo{
+        name: p.name.to_string(),
+        pomo_work_dur: p.pomodoro.as_ref().map(|p|p.work_dur)
+    }).collect())
 }
 
 pub fn load_config() -> Result<ServerConfig> {
