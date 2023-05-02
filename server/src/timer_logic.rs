@@ -45,7 +45,7 @@ pub async fn create_timer(
 
     Ok(if let Some(start_in) = start_in {
         // start with a break
-        set_next_period(timer, state.clone(), (PeriodType::StartingBreak, Some(start_in)))?
+        set_next_period(timer, state.clone(), (PeriodType::Starting, Some(start_in)))?
     } else {
         // start normally
         set_next_period(timer, state.clone(), pick_next_period(timer))?
@@ -142,10 +142,10 @@ fn pick_next_period(timer: &Timer) -> (PeriodType, Option<Duration>) {
     if let Some(pomodoro) = &timer.profile.pomodoro {
         match timer.state.period {
             Work => {
-                if timer.state.small_breaks >= pomodoro.small_breaks_between_big_ones {
+                if timer.state.small_breaks >= pomodoro.small_breaks_before_big_one {
                     (LongBreak, Some(pomodoro.long_break_dur))
                 } else {
-                    (ShortBreak, Some(pomodoro.small_break_dur))
+                    (ShortBreak, Some(pomodoro.short_break_dur))
                 }
             }
             _ => (Work, TimerGoal::time_left(timer).min(Some(pomodoro.work_dur))),

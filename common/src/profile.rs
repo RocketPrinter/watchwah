@@ -23,17 +23,26 @@ pub struct PomodoroSettings {
     pub work_dur: Duration,
     #[serde(default = "small_breaks_default")]
     #[serde_as(as = "DurationSeconds<i64>")]
-    pub small_break_dur: Duration,
+    pub short_break_dur: Duration,
     #[serde(default = "long_breaks_default")]
     #[serde_as(as = "DurationSeconds<i64>")]
     pub long_break_dur: Duration,
     #[serde(default = "break_ratio_default")]
-    pub small_breaks_between_big_ones: u32,
+    pub small_breaks_before_big_one: u32,
 }
 fn work_dur_default() -> Duration { Duration::minutes(25) }
 fn small_breaks_default() -> Duration { Duration::minutes(5) }
 fn long_breaks_default() -> Duration { Duration::minutes(15) }
 fn break_ratio_default() -> u32 { 4 }
+
+impl PomodoroSettings {
+    /// calculates the total time the session wil last with breaks included
+    pub fn calc_total_time(&self, work_time: Duration) -> Duration {
+        let break_periods = (work_time.num_seconds() as f32 / self.work_dur.num_seconds() as f32).ceil() as i32 - 1;
+        let long_breaks = break_periods / (self.small_breaks_before_big_one as i32 + 1);
+        work_time + self.short_break_dur * (break_periods - long_breaks) + self.long_break_dur * long_breaks
+    }
+}
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Blocking {
@@ -47,13 +56,4 @@ pub struct Blocking {
     pub websites: Vec<String>,
     #[serde(default)]
     pub hide_web_video: bool,
-}
-
-#[serde_as]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub enum EarlyStopBehaviour {
-    #[default]
-    NeverAllowed,
-    AllowedAfter(#[serde_as(as = "DurationSeconds<i64>")] Duration),
-    AlwaysAllowed,
 }

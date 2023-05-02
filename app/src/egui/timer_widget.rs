@@ -1,20 +1,19 @@
 use chrono::Duration;
-use eframe::egui::{Button, Color32, ProgressBar, RichText, Ui, vec2, Widget};
+use eframe::egui::{Button, Color32, popup_below_widget, ProgressBar, Response, RichText, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
+use std::hash::Hash;
 use crate::egui::centerer::centerer;
 use crate::State;
 use common::timer::{PeriodProgress, PeriodType, Timer, TimerState};
 use common::ws_common::ClientToServer;
 
-// todo: incomplete, rewrite whole thing
+// todo: incomplete
 pub fn ui(ui: &mut Ui, state: &State) {
     let Some(ref timer) = state.timer else {return};
 
-    let (_color,title) = color_and_title(&timer.state);
-
     ui.vertical_centered(|ui| {
         // title
-        ui.heading(title);
+        main_title(ui, &timer.state);
 
         time_progress_bar(ui, &timer.state.progress);
 
@@ -22,18 +21,19 @@ pub fn ui(ui: &mut Ui, state: &State) {
     });
 }
 
-fn color_and_title(timer_state: &TimerState) -> (Color32, &'static str) {
-    if let PeriodProgress::Paused {..} = timer_state.progress {
-        return (Color32::from_rgb(255, 255, 255), "Paused")
-    }
-
-    match &timer_state.period {
-        PeriodType::Uninit => (Color32::from_rgb(255, 255, 255), "Uninit"),
-        PeriodType::Work => (Color32::from_rgb(255, 255, 255), "Work"),
-        PeriodType::StartingBreak => (Color32::from_rgb(255, 255, 255), "Starting Break"),
-        PeriodType::ShortBreak => (Color32::from_rgb(255, 255, 255), "Break"),
-        PeriodType::LongBreak  => (Color32::from_rgb(255, 255, 255), "Long Break"),
-    }
+fn main_title(ui: &mut Ui, timer_state: &TimerState) {
+    let visuals = &ui.style().visuals;
+    let (color, title) = match &timer_state.progress {
+        PeriodProgress::Paused { .. } => (visuals.weak_text_color(), "Paused"),
+        _ => match &timer_state.period {
+            PeriodType::Uninit => (visuals.error_fg_color, "Uninit"),
+            PeriodType::Work => (visuals.strong_text_color(), "Work"),
+            PeriodType::Starting => (visuals.weak_text_color(), "Starting in"),
+            PeriodType::ShortBreak => (visuals.text_color(), "Break"),
+            PeriodType::LongBreak  => (visuals.text_color(), "Long Break"),
+        }
+    };
+    ui.heading(RichText::new(title).color(color));
 }
 
 fn time_progress_bar(ui: &mut Ui, period: &PeriodProgress) {
@@ -59,13 +59,13 @@ fn time_progress_bar(ui: &mut Ui, period: &PeriodProgress) {
 
     fn format_dur(dur: Duration) -> String {
         let secs = dur.num_seconds()%60;
-        let mins = dur.num_minutes()%60;
+        let minutes = dur.num_minutes()%60;
         let hours = dur.num_hours();
 
         if hours > 0 {
-            format!("{0}:{1:0>2}:{2:0>2}",hours,mins,secs)
+            format!("{0}:{1:0>2}:{2:0>2}", hours, minutes, secs)
         } else {
-            format!("{0:0>2}:{1:0>2}",mins,secs)
+            format!("{0:0>2}:{1:0>2}", minutes, secs)
         }
     }
 }
@@ -82,16 +82,31 @@ fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
             state.ws_tx.send(ClientToServer::UnpauseTimer).unwrap();
         }
 
-        if ui.add(Button::new("Stop").min_size(vec2(70.,1.))).clicked() {
+        let stop_response = ui.add(Button::new("Stop").min_size(vec2(70.,1.)));
+        if confirm_popup(ui, "stop_confirm_popup" , &stop_response) {
             state.ws_tx.send(ClientToServer::StopTimer).unwrap();
         }
 
         // skipping only makes sense if pomodoro is enabled
         if timer.profile.pomodoro.is_some() {
             let enabled = timer.profile.can_skip_work || !matches!(timer.state.period, PeriodType::Work);
-            if ui.add_enabled(enabled, Button::new("Skip").min_size(vec2(70.,1.))).clicked() {
+            let skip_response = ui.add_enabled(enabled, Button::new("Skip").min_size(vec2(70.,1.)));
+            if enabled && confirm_popup(ui, "skip_confirm_popup",&skip_response) {
                 state.ws_tx.send(ClientToServer::SkipPeriod).unwrap();
             }
         }
     });
+}
+
+fn confirm_popup(ui: &mut Ui, id_source: impl Hash, response: &Response) -> bool {
+    let popup_id = ui.id().with(id_source);
+    if response.clicked() {
+        ui.memory_mut(|mem| mem.toggle_popup(popup_id));
+    }
+
+    popup_below_widget(ui, popup_id, response, |ui| {
+        ui.set_min_width(90.);
+        ui.label("Are you sure?");
+        ui.button("Confirm").clicked()
+    }).unwrap_or_default()
 }

@@ -26,7 +26,7 @@ pub fn centerer(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
     });
 }
 
-pub fn centerer_width_override(ui: &mut Ui, width: f32, add_contents: impl FnOnce(&mut Ui)) {
+/*pub fn centerer_width_override(ui: &mut Ui, width: f32, add_contents: impl FnOnce(&mut Ui)) {
     ui.horizontal(|ui| {
         let id = ui.id().with("_centerer");
         let last_width: Option<f32> = ui.memory_mut(|mem| mem.data.get_temp(id));
@@ -48,4 +48,4 @@ pub fn centerer_width_override(ui: &mut Ui, width: f32, add_contents: impl FnOnc
             Some(_) => {}
         }
     });
-}
+}*/

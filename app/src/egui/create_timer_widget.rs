@@ -6,7 +6,7 @@ use common::ws_common::{ClientToServer, ProfileInfo};
 use chrono::Duration;
 use eframe::egui::{Button, ComboBox, DragValue, Grid, Ui, vec2, Widget};
 use eframe::egui::mutex::Mutex;
-use crate::egui::centerer::{centerer, centerer_width_override};
+use common::profile::PomodoroSettings;
 
 #[derive(Clone, Debug, Default)]
 pub struct CreateTimerState {
@@ -60,7 +60,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
                     .selectable_label(matches!(data.selected_goal, TimerGoal::Time(_)), "Time")
                     .clicked()
                 {
-                    let default_dur = data.selected_profile.as_ref().and_then(|p|p.pomo_work_dur).unwrap_or_else(||Duration::minutes(15));
+                    let default_dur = data.selected_profile.as_ref().and_then(|p|p.pomodoro.as_ref()).map(|p|p.work_dur).unwrap_or_else(||Duration::minutes(15));
                     data.selected_goal = TimerGoal::Time(default_dur);
                 }
                 if ui
@@ -80,7 +80,8 @@ pub fn ui(ui: &mut Ui, state: &State) {
                     ui.horizontal(|ui| {
                         duration_input_widget::ui(ui, duration);
 
-                        if let Some(ProfileInfo{ pomo_work_dur: Some(work_dur), ..}) = data.selected_profile {
+                        // if pomodoro is enabled we display the number of pomodoros
+                        if let Some(ProfileInfo{ pomodoro: Some(PomodoroSettings { work_dur, ..}), ..}) = data.selected_profile {
                             let mut pomodoros = duration.num_seconds() as f32 / work_dur.num_seconds() as f32;
                             let mut new_pomodoros = pomodoros;
                             ui.label(" or ");
@@ -148,5 +149,5 @@ pub fn ui(ui: &mut Ui, state: &State) {
 }
 
 fn format_profile_info(pi: &ProfileInfo) -> String {
-    format!("{}{}", pi.name, if pi.pomo_work_dur.is_some() { TOMATO } else { '\0' })
+    format!("{}{}", pi.name, if pi.pomodoro.is_some() { TOMATO } else { '\0' })
 }

@@ -66,7 +66,7 @@ pub async fn config_monitor(state: SState) -> Result<()> {
 pub fn profiles_msg(conf: &ServerConfig) -> ServerToClient {
     ServerToClient::UpdateProfiles(conf.profiles.iter().map(|p| ProfileInfo{
         name: p.name.to_string(),
-        pomo_work_dur: p.pomodoro.as_ref().map(|p|p.work_dur)
+        pomodoro: p.pomodoro.clone(),
     }).collect())
 }
 

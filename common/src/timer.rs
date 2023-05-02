@@ -112,7 +112,7 @@ impl PeriodProgress {
 pub enum PeriodType {
     Uninit,
     Work,
-    StartingBreak,
+    Starting,
     ShortBreak,
     LongBreak,
 }
