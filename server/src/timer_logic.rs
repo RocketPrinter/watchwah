@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 use common::timer::{PeriodProgress, PeriodType, Timer, TimerGoal, TimerState};
 use common::ws_common::ServerToClient;
 use tokio::select;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 pub async fn create_timer(
     timer: &mut Option<Timer>,
@@ -41,15 +41,17 @@ pub async fn create_timer(
         },
     });
 
-    let Some(ref mut timer) = *timer else {panic!()};
+    let timer = timer.as_mut().unwrap();
 
-    Ok(if let Some(start_in) = start_in {
+    _ = if let Some(start_in) = start_in {
         // start with a break
         set_next_period(timer, state.clone(), (PeriodType::Starting, Some(start_in)))?
     } else {
         // start normally
         set_next_period(timer, state.clone(), pick_next_period(timer))?
-    }.max(SyncToken::Timer))
+    };
+    info!("Timer created");
+    Ok(SyncToken::Timer)
 }
 
 pub fn pause_timer(timer: &mut Timer, state: &SState) -> Result<SyncToken> {
@@ -148,7 +150,10 @@ fn pick_next_period(timer: &Timer) -> (PeriodType, Option<Duration>) {
                     (ShortBreak, Some(pomodoro.short_break_dur))
                 }
             }
-            _ => (Work, TimerGoal::time_left(timer).min(Some(pomodoro.work_dur))),
+            _ => (Work, Some(match TimerGoal::time_left(timer){
+                Some(time_left) => time_left.min(pomodoro.work_dur),
+                None => pomodoro.work_dur,
+            })),
         }
     } else {
         (Work, TimerGoal::time_left(timer) )
@@ -183,6 +188,7 @@ fn set_next_period(timer: &mut Timer, state: SState, period: (PeriodType, Option
         spawn_task(state, dur);
     }
 
+    info!("Next period: {period:?}");
     Ok(SyncToken::TimerState)
 }
 
@@ -211,7 +217,7 @@ fn spawn_task(state: SState, awake_in: Duration) {
         // start next period
         let mut timer = state.timer.lock().await;
         let timer = timer.as_mut().ok_or_else(|| anyhow!("Timer isn't created!"))?;
-        let msg = set_next_period(timer, state.clone(), pick_next_period(&timer))?.to_msg(Some(timer));
+        let msg = set_next_period(timer, state.clone(), pick_next_period(timer))?.to_msg(Some(timer));
 
         // sync clients if necessary
         if let Some(msg) = msg {

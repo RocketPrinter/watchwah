@@ -19,7 +19,7 @@ pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
         let e = match WebSocket::connect(URL).await {
             Ok(ws) => {
                 info!("Connection established");
-                select_loop(&state, ws,&mut rx).await.unwrap_err()
+                select_loop(&state, ws, &mut rx).await.unwrap_err()
             },
             Err(err) => err,
         };
@@ -35,11 +35,15 @@ pub async fn ws_loop(state: SState, mut rx: UnboundedReceiver<ClientToServer>) {
 }
 
 async fn select_loop(state: &SState, mut ws: WebSocket, rx: &mut UnboundedReceiver<ClientToServer>) -> Result<(),WebSocketError> {
-    let mut incomplete_payload: Option<String> = None;
+    // empty the receiver
+    while rx.try_recv().is_ok() { }
+
     if let Ok(mut state) = state.lock() {
         state.ws_connected = true;
         if let Some(ref ctx) = state.egui_context {ctx.request_repaint()}
     }
+
+    let mut incomplete_payload: Option<String> = None;
     loop {
         select! {
             // message was received from the websocket that needs to be handled
