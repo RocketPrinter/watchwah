@@ -1,6 +1,4 @@
-use catppuccin_egui::FRAPPE;
 use chrono::{Utc};
-use eframe::egui;
 use crate::State;
 use eframe::egui::{Align, CollapsingHeader, Color32, Context, Label, Layout, popup_below_widget, Response, RichText, ScrollArea, Sense, TextStyle, TopBottomPanel, Ui};
 use eframe::egui::special_emojis::GITHUB;

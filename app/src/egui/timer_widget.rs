@@ -1,10 +1,9 @@
 use chrono::Duration;
-use eframe::egui::{Button, Color32, popup_below_widget, ProgressBar, Response, RichText, Ui, vec2, Widget};
+use eframe::egui::{Align, Button, Layout, ProgressBar, RichText, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
-use std::hash::Hash;
-use crate::egui::centerer::centerer;
+use crate::egui::helpers::{centerer, confirm_popup};
 use crate::State;
-use common::timer::{PeriodProgress, PeriodType, Timer, TimerState};
+use common::timer::{PeriodProgress, PeriodType, Timer, TimerGoal, TimerState};
 use common::ws_common::ClientToServer;
 
 // todo: incomplete
@@ -12,10 +11,12 @@ pub fn ui(ui: &mut Ui, state: &State) {
     let Some(ref timer) = state.timer else {return};
 
     ui.vertical_centered(|ui| {
-        // title
+
         main_title(ui, &timer.state);
 
         time_progress_bar(ui, &timer.state.progress);
+
+        goal_info(ui, timer);
 
         buttons(ui, state, timer);
     });
@@ -70,25 +71,40 @@ fn time_progress_bar(ui: &mut Ui, period: &PeriodProgress) {
     }
 }
 
+fn goal_info(ui: &mut Ui, timer: &Timer) {
+    ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+        match timer.goal {
+            TimerGoal::None => {}
+            TimerGoal::Time(dur) => {
+                let Some(ref pomodoro) = timer.profile.pomodoro else {return};
+                // display number of pomodoros
+                ui.label("Pomodoros");
+            }
+            TimerGoal::Todos(_) => {
+                ui.label("Todo!"); // todo: display number of todos
+            }
+        }
+    });
+}
+
 fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
     centerer(ui, |ui| {
         if let PeriodProgress::Running {..} = timer.state.progress {
-            // todo: early stop behaviour
-
-            if ui.add_enabled(true,Button::new("Pause").min_size(vec2(70.,1.))).clicked() {
+            if timer.profile.can_pause && Button::new("Pause").min_size(vec2(70.,1.)).ui(ui).clicked() {
                 state.ws_tx.send(ClientToServer::PauseTimer).unwrap();
             }
         } else if ui.add(Button::new("Unpause").min_size(vec2(70.,1.))).clicked() {
             state.ws_tx.send(ClientToServer::UnpauseTimer).unwrap();
         }
 
-        let stop_response = ui.add(Button::new("Stop").min_size(vec2(70.,1.)));
+        // todo: let enabled = timer.profile.can_stop_before_goal_is_fulfilled;
+        let stop_response = ui.add_enabled(true ,Button::new("Stop").min_size(vec2(70.,1.)));
         if confirm_popup(ui, "stop_confirm_popup" , &stop_response) {
             state.ws_tx.send(ClientToServer::StopTimer).unwrap();
         }
 
-        // skipping only makes sense if pomodoro is enabled
-        if timer.profile.pomodoro.is_some() {
+        // skipping only makes sense if pomodoro is enabled or the period is a starting break
+        if timer.profile.pomodoro.is_some() || matches!(timer.state.period, PeriodType::Starting) {
             let enabled = timer.profile.can_skip_work || !matches!(timer.state.period, PeriodType::Work);
             let skip_response = ui.add_enabled(enabled, Button::new("Skip").min_size(vec2(70.,1.)));
             if enabled && confirm_popup(ui, "skip_confirm_popup",&skip_response) {
@@ -96,17 +112,4 @@ fn buttons(ui: &mut Ui, state: &State, timer: &Timer) {
             }
         }
     });
-}
-
-fn confirm_popup(ui: &mut Ui, id_source: impl Hash, response: &Response) -> bool {
-    let popup_id = ui.id().with(id_source);
-    if response.clicked() {
-        ui.memory_mut(|mem| mem.toggle_popup(popup_id));
-    }
-
-    popup_below_widget(ui, popup_id, response, |ui| {
-        ui.set_min_width(90.);
-        ui.label("Are you sure?");
-        ui.button("Confirm").clicked()
-    }).unwrap_or_default()
 }

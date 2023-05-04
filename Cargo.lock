@@ -242,6 +242,7 @@ dependencies = [
  "egui-toast",
  "egui_extras",
  "futures",
+ "humantime",
  "notify",
  "notify-rust",
  "pathpatterns",

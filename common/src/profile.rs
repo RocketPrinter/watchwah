@@ -10,9 +10,15 @@ pub struct Profile {
     pub pomodoro: Option<PomodoroSettings>,
     #[serde(default)]
     pub blocking: Blocking,
+    #[serde(default = "can_stop_before_goal_is_fulfilled_default")]
+    pub can_stop_before_goal_is_fulfilled: bool,
+    #[serde(default = "can_pause_default")]
+    pub can_pause: bool,
     #[serde(default)]
     pub can_skip_work: bool,
 }
+fn can_stop_before_goal_is_fulfilled_default() -> bool { true }
+fn can_pause_default() -> bool { true }
 
 // todo: use a better format than DurationSeconds
 #[serde_as]
@@ -37,10 +43,10 @@ fn break_ratio_default() -> u32 { 4 }
 
 impl PomodoroSettings {
     /// calculates the total time the session wil last with breaks included
-    pub fn calc_total_time(&self, work_time: Duration) -> Duration {
+    pub fn calc_break_time(&self, work_time: Duration) -> Duration {
         let break_periods = (work_time.num_seconds() as f32 / self.work_dur.num_seconds() as f32).ceil() as i32 - 1;
         let long_breaks = break_periods / (self.small_breaks_before_big_one as i32 + 1);
-        work_time + self.short_break_dur * (break_periods - long_breaks) + self.long_break_dur * long_breaks
+        self.short_break_dur * (break_periods - long_breaks) + self.long_break_dur * long_breaks
     }
 }
 

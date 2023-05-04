@@ -1,17 +1,11 @@
-mod centerer;
+mod helpers;
 mod create_timer_widget;
-mod duration_input_widget;
 mod timer_widget;
 mod top_panel;
 
 use crate::SState;
 use eframe::egui::{Context, CentralPanel};
 use tracing::{info, instrument};
-
-pub const TOMATO: char = match char::from_u32(0x1F345) {
-    Some(c) => c,
-    None => panic!(),
-};
 
 #[instrument(name = "egui", skip_all)]
 pub fn run(state: SState) {

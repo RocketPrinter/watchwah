@@ -81,5 +81,5 @@ pub async fn main() -> Result<()> {
 // actual detection??
 // switch away from notifications?
 //todo: wayland + windows detection
-//todo: delayed start?
 //todo: notify 1 min before end of period
+//todo: if not using pomodoro have a button that starts a break?

@@ -1,12 +1,13 @@
 use std::sync::Arc;
-use crate::egui::{duration_input_widget, TOMATO};
 use crate::State;
+use crate::egui::helpers::{TOMATO, duration_input_widget};
 use common::timer::TimerGoal;
 use common::ws_common::{ClientToServer, ProfileInfo};
 use chrono::Duration;
-use eframe::egui::{Button, ComboBox, DragValue, Grid, Ui, vec2, Widget};
+use eframe::egui::{Button, ComboBox, DragValue, Grid, RichText, Ui, vec2, Widget};
 use eframe::egui::mutex::Mutex;
 use common::profile::PomodoroSettings;
+use std::time::Duration as StdDuration;
 
 #[derive(Clone, Debug, Default)]
 pub struct CreateTimerState {
@@ -26,7 +27,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
     Grid::new("create_timer_grid")
         .min_col_width(55.)
         .show(ui, |ui| {
-            // ------ profile ------
+            // ------ Profile ------
             // in case the profile doesn't exist anymore
             if data
                 .selected_profile
@@ -52,7 +53,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
                 });
             ui.end_row();
 
-            // ------ goal ------
+            // ------ Goal ------
             ui.label("Goal:");
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut data.selected_goal, TimerGoal::None, "None");
@@ -64,7 +65,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
                     data.selected_goal = TimerGoal::Time(default_dur);
                 }
                 if ui
-                    .selectable_label(matches!(data.selected_goal, TimerGoal::Todos(_)), "Todo")
+                    .selectable_label(matches!(data.selected_goal, TimerGoal::Todos(_)), "Todos")
                     .clicked()
                 {
                     data.selected_goal = TimerGoal::Todos(69);
@@ -78,7 +79,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
                 TimerGoal::Time(ref mut duration) => {
                     ui.label("Duration:");
                     ui.horizontal(|ui| {
-                        duration_input_widget::ui(ui, duration);
+                        duration_input_widget(ui, duration);
 
                         // if pomodoro is enabled we display the number of pomodoros
                         if let Some(ProfileInfo{ pomodoro: Some(PomodoroSettings { work_dur, ..}), ..}) = data.selected_profile {
@@ -102,7 +103,6 @@ pub fn ui(ui: &mut Ui, state: &State) {
                                     *duration = new_dur;
                                 }
                             }
-                            // todo: show total time including breaks
                         }
                     });
                     ui.end_row();
@@ -114,7 +114,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
                 }
             }
 
-            // ------ start in ------
+            // ------ Start in ------
             ui.label("Start:");
             ui.horizontal(|ui| {
                 ComboBox::from_id_source("start_in")
@@ -125,10 +125,26 @@ pub fn ui(ui: &mut Ui, state: &State) {
                         if ui.selectable_label(data.start_in.is_some(), "In").clicked() { data.start_in = Some(Duration::minutes(5));}
                     });
                 if let Some(ref mut start_in) = data.start_in {
-                    duration_input_widget::ui(ui, start_in);
+                    duration_input_widget(ui, start_in);
                 }
             });
             ui.end_row();
+
+            // ------ Total time ------
+            if let TimerGoal::Time(time) = data.selected_goal {
+                let total_time = time
+                    + data.start_in.unwrap_or(Duration::zero())
+                    + data.selected_profile.as_ref()
+                        .and_then(|p| p.pomodoro.as_ref())
+                        .map(|p|p.calc_break_time(time))
+                    .unwrap_or_else(Duration::zero);
+                if total_time != time {
+                    ui.label(RichText::new("Total time:").color(ui.visuals().weak_text_color()));
+                    let total_time = humantime::format_duration(total_time.to_std().unwrap_or_else(|_| StdDuration::new(0,0))).to_string();
+                    ui.label(RichText::new(total_time).color(ui.visuals().weak_text_color()));
+                    ui.end_row();
+                }
+            }
 
             // ------ Start button ------
             ui.label("");
@@ -147,6 +163,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
             }
         });
 }
+
 
 fn format_profile_info(pi: &ProfileInfo) -> String {
     format!("{}{}", pi.name, if pi.pomodoro.is_some() { TOMATO } else { '\0' })
