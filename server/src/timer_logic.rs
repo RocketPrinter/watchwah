@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::SState;
 use anyhow::{anyhow, bail, Result};
 use chrono::{Duration, Utc};
@@ -161,6 +162,7 @@ fn pick_next_period(timer: &Timer) -> (PeriodType, Option<Duration>) {
 }
 
 fn set_next_period(timer: &mut Timer, state: SState, period: (PeriodType, Option<Duration>)) -> Result<SyncToken> {
+
     // setup next period
     timer.state.period = period.0;
     timer.state.progress = PeriodProgress::Running {
@@ -193,10 +195,6 @@ fn set_next_period(timer: &mut Timer, state: SState, period: (PeriodType, Option
 }
 
 fn spawn_task(state: SState, awake_in: Duration) {
-    if awake_in <= Duration::zero() {
-        return;
-    }
-
     // cancel any existing timer tasks
     state.cancel_timer_task.notify_waiters();
 
@@ -208,6 +206,15 @@ fn spawn_task(state: SState, awake_in: Duration) {
     });
 
     async fn timer_task(state: SState, awake_in: Duration) -> Result<()> {
+        if awake_in <= Duration::zero() {
+            // stop the timer
+            // todo: hacky solution, far from ideal
+            if let Some(msg) = stop_timer(&mut *state.timer.lock().await, &state)?.to_msg(None) {
+                state.ws_tx.send(msg).unwrap();
+            }
+            return Ok(());
+        }
+
         // await for the task to cet cancelled or the duration to pass
         select! {
                 _ = state.cancel_timer_task.notified() => return Ok(()),

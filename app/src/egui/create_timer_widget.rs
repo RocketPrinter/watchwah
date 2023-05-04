@@ -136,7 +136,7 @@ pub fn ui(ui: &mut Ui, state: &State) {
                     + data.start_in.unwrap_or(Duration::zero())
                     + data.selected_profile.as_ref()
                         .and_then(|p| p.pomodoro.as_ref())
-                        .map(|p|p.calc_break_time(time))
+                        .map(|p|p.calc_break_time(p.calc_pomodoros(time)))
                     .unwrap_or_else(Duration::zero);
                 if total_time != time {
                     ui.label(RichText::new("Total time:").color(ui.visuals().weak_text_color()));

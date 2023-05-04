@@ -29,7 +29,6 @@ impl TimerGoal {
         match timer.goal {
             TimerGoal::None | TimerGoal::Todos(_) => None,
             TimerGoal::Time(dur) => Some(dur),
-            //TimerGoal::Pomodoros(n) => Some(timer.profile.pomodoro.as_ref()?.work_dur * n as i32),
         }
     }
 

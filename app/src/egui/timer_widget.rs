@@ -1,7 +1,7 @@
 use chrono::Duration;
 use eframe::egui::{Align, Button, Layout, ProgressBar, RichText, Ui, vec2, Widget};
 use core::time::Duration as StdDuration;
-use crate::egui::helpers::{centerer, confirm_popup};
+use crate::egui::helpers::{centerer, confirm_popup, TOMATO};
 use crate::State;
 use common::timer::{PeriodProgress, PeriodType, Timer, TimerGoal, TimerState};
 use common::ws_common::ClientToServer;
@@ -78,7 +78,10 @@ fn goal_info(ui: &mut Ui, timer: &Timer) {
             TimerGoal::Time(dur) => {
                 let Some(ref pomodoro) = timer.profile.pomodoro else {return};
                 // display number of pomodoros
-                ui.label("Pomodoros");
+                ui.label(format!("{}/{}{TOMATO}",
+                                 pomodoro.calc_pomodoros(timer.state.total_dur_worked),
+                                 pomodoro.calc_pomodoros(dur)
+                ));
             }
             TimerGoal::Todos(_) => {
                 ui.label("Todo!"); // todo: display number of todos

@@ -42,10 +42,13 @@ fn long_breaks_default() -> Duration { Duration::minutes(15) }
 fn break_ratio_default() -> u32 { 4 }
 
 impl PomodoroSettings {
-    /// calculates the total time the session wil last with breaks included
-    pub fn calc_break_time(&self, work_time: Duration) -> Duration {
-        let break_periods = (work_time.num_seconds() as f32 / self.work_dur.num_seconds() as f32).ceil() as i32 - 1;
-        let long_breaks = break_periods / (self.small_breaks_before_big_one as i32 + 1);
+    pub fn calc_pomodoros(&self, work_time: Duration) -> u32 {
+        u32::try_from((work_time.num_seconds() as f32 / self.work_dur.num_seconds() as f32).ceil() as i32 ).unwrap_or(0)
+    }
+
+    pub fn calc_break_time(&self, pomodoros: u32) -> Duration {
+        let break_periods = pomodoros.saturating_sub(1) as i32;
+        let long_breaks = break_periods / (self.small_breaks_before_big_one + 1) as i32;
         self.short_break_dur * (break_periods - long_breaks) + self.long_break_dur * long_breaks
     }
 }
