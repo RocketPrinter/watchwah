@@ -39,7 +39,7 @@ pub struct PomodoroSettings {
 fn work_dur_default() -> Duration { Duration::minutes(25) }
 fn small_breaks_default() -> Duration { Duration::minutes(5) }
 fn long_breaks_default() -> Duration { Duration::minutes(15) }
-fn break_ratio_default() -> u32 { 4 }
+fn break_ratio_default() -> u32 { 3 }
 
 impl PomodoroSettings {
     pub fn calc_pomodoros(&self, work_time: Duration) -> u32 {
@@ -53,6 +53,7 @@ impl PomodoroSettings {
     }
 }
 
+// todo: rename
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Blocking {
     // regex

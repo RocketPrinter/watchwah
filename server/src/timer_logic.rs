@@ -142,7 +142,12 @@ impl SyncToken {
 
 fn pick_next_period(timer: &Timer) -> (PeriodType, Option<Duration>) {
     use PeriodType::*;
-    if let Some(pomodoro) = &timer.profile.pomodoro {
+    let time_left = TimerGoal::time_left(timer);
+    if time_left == Some(Duration::zero()){
+        // we stop the timer by sending in a zero duration period
+        (Uninit, Some(Duration::zero()))
+    } else if let Some(pomodoro) = &timer.profile.pomodoro {
+        // pomodoro logic
         match timer.state.period {
             Work => {
                 if timer.state.small_breaks >= pomodoro.small_breaks_before_big_one {
@@ -151,13 +156,14 @@ fn pick_next_period(timer: &Timer) -> (PeriodType, Option<Duration>) {
                     (ShortBreak, Some(pomodoro.short_break_dur))
                 }
             }
-            _ => (Work, Some(match TimerGoal::time_left(timer){
+            _ => (Work, Some(match time_left {
                 Some(time_left) => time_left.min(pomodoro.work_dur),
                 None => pomodoro.work_dur,
             })),
         }
     } else {
-        (Work, TimerGoal::time_left(timer) )
+        // normal logic
+        (Work, time_left )
     }
 }
 

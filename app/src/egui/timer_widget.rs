@@ -6,7 +6,6 @@ use crate::State;
 use common::timer::{PeriodProgress, PeriodType, Timer, TimerGoal, TimerState};
 use common::ws_common::ClientToServer;
 
-// todo: incomplete
 pub fn ui(ui: &mut Ui, state: &State) {
     let Some(ref timer) = state.timer else {return};
 

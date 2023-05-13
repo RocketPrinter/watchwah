@@ -59,7 +59,6 @@ pub async fn main() {
 
     // axum
     let router = Router::new()
-        // todo: rest
         .route(
             "/ws",
             get(

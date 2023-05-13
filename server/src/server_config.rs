@@ -1,5 +1,5 @@
 use crate::{timer_logic, SState};
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use common::get_config_path;
 use common::profile::Profile;
 use notify::event::{CreateKind, RemoveKind};
@@ -97,12 +97,9 @@ fn load_profiles(path: PathBuf) -> Result<Vec<Profile>> {
         let contents = fs::read_to_string(path)?;
 
         let mut profile = toml::from_str::<Profile>(&contents)?;
-        profile.name = file
-            .path()
-            .file_stem()
-            .unwrap()
-            .to_str()
-            .unwrap()
+        profile.name = file.path().file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow!("Config file has no path!"))?
             .to_string();
         profiles.push(profile);
     }

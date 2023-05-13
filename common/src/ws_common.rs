@@ -28,7 +28,6 @@ pub enum ClientToServer {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[must_use]
 pub enum ServerToClient {
-    /// (name, pomodoro)
     UpdateProfiles(Vec<ProfileInfo>),
     UpdateTimer(Option<Box<Timer>>),
     UpdateTimerState(Box<TimerState>),
